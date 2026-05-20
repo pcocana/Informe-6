@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Indicadores · Sistema de Bibliotecas PUCV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root {
+  --navy:#1B3A6B; --navy2:#243f6e; --gold:#C8A951; --gold-lt:#f5efd5;
+  --teal:#1D9E75; --teal-lt:#E1F5EE; --amber:#BA7517; --amber-lt:#FAEEDA;
+  --red:#A32D2D; --red-lt:#FCEBEB; --bg:#F7F6F2; --surface:#FFFFFF;
+  --border:#E2E0D9; --border2:#CCC9BF; --text:#1A1A18; --text2:#5A5A55; --text3:#9A9A93;
+  --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; --r:8px; --r2:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{font-family:var(--font);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.sidebar{background:var(--navy);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{padding:2rem 2rem 3rem;overflow-x:hidden}
+
+/* Sidebar */
+.sb-header{padding:1.5rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-logo{display:flex;align-items:center;gap:10px;margin-bottom:.5rem}
+.sb-logo-icon{width:32px;height:32px;background:var(--gold);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb-logo-icon svg{width:18px;height:18px;fill:var(--navy)}
+.sb-title{font-size:13px;font-weight:600;line-height:1.2}
+.sb-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px}
+.sb-section{padding:1rem 1.25rem .5rem;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.4)}
+.sb-files{padding:0 .75rem .75rem;display:flex;flex-direction:column;gap:4px}
+.sb-file{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:var(--r);border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);cursor:pointer;transition:background .15s;position:relative}
+.sb-file:hover{background:rgba(255,255,255,.09)}
+.sb-file.loaded{border-color:rgba(29,158,117,.4);background:rgba(29,158,117,.12)}
+.sb-file input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.sb-file-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;background:rgba(255,255,255,.2);transition:background .2s}
+.sb-file.loaded .sb-file-dot{background:var(--teal)}
+.sb-file-info{flex:1;min-width:0}
+.sb-file-name{font-size:12px;font-weight:500;color:rgba(255,255,255,.9)}
+.sb-file.loaded .sb-file-name{color:#5DCAA5}
+.sb-file-hint{font-size:10px;color:rgba(255,255,255,.35);margin-top:1px;font-family:var(--mono)}
+.sb-file.loaded .sb-file-hint{color:rgba(93,202,165,.6)}
+.sb-drop{margin:0 .75rem .75rem;border:1.5px dashed rgba(255,255,255,.15);border-radius:var(--r);padding:.75rem;text-align:center;cursor:pointer;position:relative;transition:border-color .15s,background .15s}
+.sb-drop:hover,.sb-drop.drag{border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.05)}
+.sb-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.sb-drop p{font-size:11px;color:rgba(255,255,255,.45);pointer-events:none}
+.sb-drop strong{color:rgba(255,255,255,.75)}
+.sb-actions{padding:0 .75rem .75rem;display:flex;flex-direction:column;gap:6px}
+.sb-btn{display:flex;align-items:center;gap:7px;width:100%;padding:8px 12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(255,255,255,.8);font-size:12px;font-family:var(--font);cursor:pointer;transition:background .15s;text-align:left}
+.sb-btn:hover{background:rgba(255,255,255,.13);color:#fff}
+.sb-btn svg{width:15px;height:15px;stroke:currentColor;flex-shrink:0}
+.sb-btn.disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+.sb-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.3);line-height:1.6}
+
+/* Page header */
+.page-header{margin-bottom:1.75rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
+.page-header h1{font-size:20px;font-weight:600;color:var(--navy)}
+.page-header p{font-size:13px;color:var(--text2);margin-top:3px}
+.date-badge{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:11px;font-family:var(--mono);background:var(--gold-lt);color:var(--amber);padding:3px 10px;border-radius:20px;border:1px solid #e8d89a}
+
+/* Section */
+.section{margin-bottom:1.75rem}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem}
+.section-title{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
+.section-title::before{content:'';width:3px;height:14px;background:var(--gold);border-radius:2px;display:inline-block}
+.btn-export{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;cursor:pointer;padding:6px 14px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:var(--font);transition:all .15s}
+.btn-export:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn-export svg{width:14px;height:14px;stroke:currentColor}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:1rem 1.125rem}
+.kpi-card-lbl{font-size:11px;color:var(--text2);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.kpi-card-val{font-size:26px;font-weight:600;color:var(--navy);font-family:var(--mono);line-height:1}
+.kpi-card-aux{font-size:11px;color:var(--text3);margin-top:4px}
+.kpi-card.accent{border-color:var(--gold);background:var(--gold-lt)}
+.kpi-card.accent .kpi-card-lbl{color:var(--amber)}
+.kpi-card.accent .kpi-card-val{color:var(--navy)}
+
+/* Filter */
+.filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:.875rem}
+.filter-bar label{font-size:12px;color:var(--text2);font-weight:500}
+.filter-bar select{font-size:12px;padding:5px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:var(--font);cursor:pointer}
+.filter-bar select:focus{outline:2px solid var(--navy);outline-offset:1px}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:900px}
+thead th{background:var(--bg);font-weight:600;padding:9px 12px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text2);font-size:11px}
+thead th:first-child{text-align:left;position:sticky;left:0;z-index:2;background:var(--bg)}
+thead .grp{display:block;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px}
+tbody td{padding:9px 12px;border-bottom:1px solid #f0efe9;text-align:right;color:var(--text)}
+tbody td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);font-weight:500;z-index:1;color:var(--navy)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#fafaf7}
+tbody tr:hover td:first-child{background:#fafaf7}
+tfoot td{padding:9px 12px;border-top:1px solid var(--border2);text-align:right;font-weight:600;background:var(--bg);color:var(--text);font-size:12px}
+tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg);color:var(--navy)}
+
+/* Badges */
+.rb{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;font-family:var(--mono)}
+.rb-g{background:var(--teal-lt);color:#085041;border:1px solid #9FE1CB}
+.rb-y{background:var(--amber-lt);color:#633806;border:1px solid #FAC775}
+.rb-r{background:var(--red-lt);color:#791F1F;border:1px solid #F7C1C1}
+.miss{color:var(--text3);font-size:11px}
+
+/* UA */
+.ua-add-bar{display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap}
+.ua-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;background:#EBF3FB;color:#185FA5;border:1px solid #B5D4F4;font-family:var(--mono)}
+.ua-tag button{background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 0 0 3px}
+.ua-tag button:hover{color:var(--red)}
+.btn-add-ua{display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:var(--font);transition:background .15s;position:relative}
+.btn-add-ua:hover{background:var(--bg);color:var(--text)}
+.btn-add-ua input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.ua-empty{border:1.5px dashed var(--border2);border-radius:var(--r2);padding:2rem;text-align:center}
+.ua-empty p{font-size:13px;color:var(--text2);margin-bottom:.75rem}
+.ua-al-input{width:90px;padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:var(--mono);text-align:right;background:#fff;color:var(--text);transition:border-color .15s}
+.ua-al-input:focus{outline:none;border-color:var(--navy);background:#fff}
+.ua-al-input::placeholder{color:var(--text3);font-size:11px}
+.ua-al-hint{display:block;font-size:10px;color:var(--text3);margin-top:6px}
+
+/* Legend */
+.legend{display:flex;gap:16px;font-size:11px;color:var(--text2);margin-bottom:.625rem;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:5px}
+.leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* Empty */
+.empty-state{text-align:center;padding:3rem 2rem}
+.empty-icon{width:48px;height:48px;background:var(--bg);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto .75rem}
+.empty-icon svg{width:22px;height:22px;stroke:var(--text3);fill:none}
+.empty-state h3{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.empty-state p{font-size:13px;color:var(--text3)}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:var(--r2);width:520px;max-width:92vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-header{padding:1.125rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-header h2{font-size:15px;font-weight:600;color:var(--navy)}
+.modal-header p{font-size:12px;color:var(--text2);margin-top:2px}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--text3);font-size:20px;line-height:1;padding:2px 6px;border-radius:var(--r);transition:background .15s}
+.modal-close:hover{background:var(--bg);color:var(--text)}
+.modal-body{overflow-y:auto;flex:1;padding:.5rem 0}
+.name-table{width:100%;border-collapse:collapse}
+.name-table tr:hover td{background:#fafaf7}
+.name-table td{padding:5px 1.25rem;vertical-align:middle}
+.name-table .code{font-family:var(--mono);font-size:11px;color:var(--text3);width:100px;white-space:nowrap}
+.name-input{width:100%;padding:5px 10px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);color:var(--text);background:#fff;transition:border-color .15s}
+.name-input:focus{outline:none;border-color:var(--navy);background:#fff}
+.modal-footer{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;flex-shrink:0;align-items:center}
+.btn-reset{font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:var(--font);text-decoration:underline;padding:0}
+.btn-reset:hover{color:var(--text)}
+.btn-primary{padding:7px 18px;border-radius:var(--r);border:none;background:var(--navy);color:#fff;font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;transition:background .15s}
+.btn-primary:hover{background:var(--navy2)}
+.btn-secondary{padding:7px 18px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:13px;font-family:var(--font);cursor:pointer;transition:background .15s}
+.btn-secondary:hover{background:var(--bg)}
+
+@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto}.main{padding:1rem}}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-header">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L20 8.5V9l-8 4-8-4v-.5l8-4.32zM4 10.5l8 4 8-4v7.5l-8 4-8-4V10.5z"/></svg>
+      </div>
+      <div>
+        <div class="sb-title">Sistema de Bibliotecas</div>
+        <div class="sb-sub">PUCV · KOHA Analytics</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sb-section">Carga de datos</div>
+  <div class="sb-drop" id="dropZone">
+    <input type="file" id="mainInput" multiple accept=".csv,.txt">
+    <p><strong>Arrastra CSV aquí</strong><br>o haz clic para seleccionar</p>
+  </div>
+
+  <div class="sb-section">Estado de archivos</div>
+  <div class="sb-files" id="chipsList"></div>
+
+  <div class="sb-section">Herramientas</div>
+  <div class="sb-actions">
+    <button class="sb-btn" onclick="exportToExcel()" id="btnExport">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+      </svg>
+      Exportar a Excel
+    </button>
+    <button class="sb-btn" onclick="openNameEditor()">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+      Editar nombres de bibliotecas
+    </button>
+  </div>
+
+  <div class="sb-footer">
+    Los archivos se procesan localmente.<br>
+    Ningún dato sale de este navegador.<br><br>
+    Sistema de Bibliotecas PUCV · 2025
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="page-header">
+    <h1>Panel de indicadores bibliográficos</h1>
+    <p>Carga los exports CSV de KOHA — la herramienta cruza los datos y calcula los KPIs automáticamente</p>
+    <span class="date-badge" id="dateBadge"></span>
+  </div>
+
+  <div class="section" id="kpiSection">
+    <div class="section-head"><div class="section-title">Totales del sistema</div></div>
+    <div class="kpi-grid" id="kpiGrid">
+      <div style="grid-column:1/-1">
+        <div class="empty-state">
+          <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div>
+          <h3>Sin datos cargados</h3>
+          <p>Arrastra los CSV de KOHA al panel izquierdo</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="tableSection" style="display:none">
+    <div class="section-head">
+      <div class="section-title">Indicadores por biblioteca</div>
+      <button class="btn-export" onclick="exportToExcel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar Excel
+      </button>
+    </div>
+    <div class="legend">
+      <span class="leg"><span class="leg-dot" style="background:#E1F5EE;border:1px solid #9FE1CB"></span>Ratio ≥ 10 títulos/alumno</span>
+      <span class="leg"><span class="leg-dot" style="background:#FAEEDA;border:1px solid #FAC775"></span>Entre 5 y 9.9</span>
+      <span class="leg"><span class="leg-dot" style="background:#FCEBEB;border:1px solid #F7C1C1"></span>Menor a 5</span>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;background:#FFF8E6;border:1px solid #F5D87A;border-radius:var(--r);padding:.625rem .875rem;margin-bottom:.875rem">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span style="font-size:12px;color:#854F0B;line-height:1.5">
+        <strong>Ratio por biblioteca vs. ratio por UA:</strong> el ratio de esta tabla usa el <em>total de títulos de la biblioteca</em> (informe de recursos físicos), que puede incluir material de varias carreras y colecciones transversales. El ratio en la sección <strong>Análisis por UA</strong> usa solo los títulos asignados a esa unidad académica específica, por lo que puede ser menor y es el <strong>más representativo para acreditación por carrera</strong>.
+      </span>
+    </div>
+    <div class="filter-bar">
+      <label for="filterBib">Biblioteca:</label>
+      <select id="filterBib" onchange="renderMain()">
+        <option value="">Todas</option>
+      </select>
+      <label for="filterSort" style="margin-left:8px">Ordenar por:</label>
+      <select id="filterSort" onchange="renderMain()">
+        <option value="name">Nombre</option>
+        <option value="titulos">Títulos (mayor → menor)</option>
+        <option value="alumnos">Alumnos (mayor → menor)</option>
+        <option value="ratio">Ratio T/A</option>
+        <option value="prestamos">Préstamos</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table id="mainTable">
+        <thead>
+          <tr>
+            <th rowspan="2" style="text-align:left;vertical-align:bottom">Biblioteca</th>
+            <th colspan="3"><span class="grp">Colección</span></th>
+            <th colspan="3"><span class="grp">Usuarios</span></th>
+            <th><span class="grp">KPI</span></th>
+            <th colspan="2"><span class="grp">Circulación</span></th>
+          </tr>
+          <tr>
+            <th>Títulos físicos</th><th>Ejm. físicos</th><th>Títulos ebooks</th>
+            <th>Total títulos</th><th>Al. pregrado</th><th>Al. postgrado</th>
+            <th>Total alumnos</th><th>Ratio T/A</th>
+            <th>Préstamos</th><th>Prést./alumno</th>
+          </tr>
+        </thead>
+        <tbody id="mainBody"></tbody>
+        <tfoot id="mainFoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><div class="section-title">Análisis por unidad académica (UA)</div></div>
+    <div id="uaSection"></div>
+  </div>
+</main>
+</div>
+
+<!-- MODAL: Editar nombres -->
+<div class="modal-overlay" id="nameModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>Editar nombres de bibliotecas</h2>
+        <p>Los cambios se aplican inmediatamente en el panel</p>
+      </div>
+      <button class="modal-close" onclick="closeNameEditor()">×</button>
+    </div>
+    <div class="modal-body">
+      <table class="name-table" id="nameTable"></table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-reset" onclick="resetNames()">Restaurar nombres originales</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeNameEditor()">Cancelar</button>
+        <button class="btn-primary" onclick="saveNames()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ORIGINAL_NAMES = {
+  BIBAGR:'Agronomía', BIBALI:'Alimentos', BIBARQ:'Arquitectura', BIBART:'Arte',
+  BIBCFT:'CFT', BIBCUR:'Curauma', BIBDER:'Derecho', BIBEDU:'Educación',
+  BIBENE:'Energía', BIBGIM:'GIM', BIBHIS:'Historia', BIBINC:'Inclusión',
+  BIBING:'Ingeniería', BIBMAT:'Matemáticas', BIBMEC:'Mecánica', BIBMUS:'Música',
+  BIBRCV:'BIBRCV', BIBRNT:'BIBRNT', BIBTEO:'Teología', DIRBIB:'Dir. Bibliotecas'
+};
+let NAMES = {...ORIGINAL_NAMES};
+
+const MAIN = ['BIBAGR','BIBALI','BIBARQ','BIBART','BIBCUR','BIBDER','BIBEDU',
+  'BIBENE','BIBGIM','BIBHIS','BIBINC','BIBING','BIBMAT','BIBMEC','BIBMUS','BIBTEO'];
+
+const FILE_DEFS = [
+  {id:'fisicos',  label:'Recursos físicos',     hint:'homebranch · Títulos · Físicos'},
+  {id:'ebooks',   label:'Ebooks',               hint:'homebranch · Títulos · Ebooks'},
+  {id:'alumnos',  label:'Alumnos por biblioteca',hint:'branchcode · categorycode'},
+  {id:'prestamos',label:'Actividad de préstamos',hint:'BIBLIONUMBER · Count of items'},
+];
+
+const S = {fisicos:null, ebooks:null, alumnos:null, prestamos:null, ua:[], uaAlumnos:{}};
+
+/* ── CSV ── */
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (!lines.length) return {headers:[],rows:[]};
+  const parseRow = l => {
+    const cells=[]; let cell='', inQ=false;
+    for (let i=0;i<l.length;i++) {
+      const c=l[i];
+      if(c==='"'){inQ=!inQ;continue;}
+      if(c===';'&&!inQ){cells.push(cell.trim());cell='';}
+      else cell+=c;
+    }
+    cells.push(cell.trim());
+    return cells;
+  };
+  const headers = parseRow(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
+  const rows = lines.slice(1).filter(l=>l.trim()).map(l=>{
+    const vals=parseRow(l);
+    const obj={};
+    headers.forEach((h,i)=>obj[h]=(vals[i]||'').replace(/^"|"$/g,'').trim());
+    return obj;
+  });
+  return {headers, rows};
+}
+
+function detectType(filename, headers) {
+  const fn=filename.toLowerCase();
+  const hs=new Set(headers.map(h=>h.toLowerCase()));
+  if(hs.has('categorycode')||hs.has('numberenrolled')) return 'alumnos';
+  if(hs.has('unidad_academica')) return 'ua';
+  if(hs.has('biblionumber')||hs.has('count of items')) return 'prestamos';
+  if(hs.has('homebranch')&&hs.has('títulos')) return fn.includes('ebook')?'ebooks':'fisicos';
+  return 'unknown';
+}
+
+/* ── Processors ── */
+function processAlumnos(rows) {
+  const m={};
+  rows.forEach(r=>{
+    const bib=r.branchcode||r.Branchcode||''; if(!bib) return;
+    if(!m[bib]) m[bib]={pre:0,pos:0};
+    const n=parseInt(r.NumberEnrolled||r.numberenrolled||0)||0;
+    if((r.categorycode||'').toUpperCase().includes('POS')) m[bib].pos+=n;
+    else m[bib].pre+=n;
+  });
+  return m;
+}
+function processColeccion(rows) {
+  const m={};
+  rows.forEach(r=>{
+    const bib=r.homebranch||r.Homebranch||''; if(!bib) return;
+    m[bib]={titulos:parseInt(r['Títulos']||r.Titulos||0)||0, ejemplares:parseInt(r.Ejemplares||0)||0};
+  });
+  return m;
+}
+function processPrestamos(rows) {
+  const m={};
+  rows.forEach(r=>{
+    const bib=(r['Biblioteca Actual']||'').trim(); if(!bib) return;
+    m[bib]=(m[bib]||0)+(parseInt(r['Count of items']||0)||0);
+  });
+  return m;
+}
+function processUA(rows) {
+  return rows.map(r=>({
+    bib:r.Biblioteca||'', ua:r.Unidad_academica||r.unidad_academica||'',
+    titulos:parseInt(r['Títulos']||r.Titulos||0)||0,
+    ejemplares:parseInt(r.Ejemplares||0)||0
+  })).filter(x=>x.bib&&x.ua);
+}
+
+async function handleFiles(files, isUA=false) {
+  for (const file of files) {
+    const text = await file.text();
+    const {headers,rows} = parseCSV(text);
+    if(!rows.length) continue;
+    const type = isUA?'ua':detectType(file.name,headers);
+    if(type==='ua') {
+      const entries=processUA(rows);
+      if(entries.length){S.ua=S.ua.filter(x=>!entries.find(e=>e.ua===x.ua&&e.bib===x.bib));S.ua.push(...entries);}
+    } else if(type==='alumnos')  S.alumnos  =processAlumnos(rows);
+    else if(type==='ebooks')     S.ebooks   =processColeccion(rows);
+    else if(type==='fisicos')    S.fisicos  =processColeccion(rows);
+    else if(type==='prestamos')  S.prestamos=processPrestamos(rows);
+  }
+  render();
+}
+
+/* ── Compute ── */
+function computeRows() {
+  return MAIN.map(bib=>{
+    const fis=S.fisicos?.[bib], eb=S.ebooks?.[bib], al=S.alumnos?.[bib], pr=S.prestamos?.[bib]??null;
+    const titFis=fis?.titulos??null, ejmFis=fis?.ejemplares??null;
+    const titEb=eb?.titulos??0, ejmEb=eb?.ejemplares??0;
+    const totTit=(titFis??0)+titEb, totEjm=(ejmFis??0)+ejmEb;
+    const alPre=al?.pre??null, alPos=al?.pos??null;
+    const alTot=al?(al.pre+al.pos):null;
+    const ratio=(totTit>0&&alTot>0)?totTit/alTot:null;
+    const prAlumno=(pr!==null&&alTot)?pr/alTot:null;
+    return{bib,name:NAMES[bib]||bib,titFis,ejmFis,titEb,ejmEb,totTit,totEjm,alPre,alPos,alTot,ratio,prestamos:pr,prAlumno};
+  });
+}
+
+/* ── Helpers ── */
+const n0=v=>v===null?'<span class="miss">—</span>':Math.round(v).toLocaleString('es-CL');
+function badge(v,hi,lo){
+  if(v===null)return'<span class="miss">—</span>';
+  const cls=v>=hi?'rb-g':v>=lo?'rb-y':'rb-r';
+  return`<span class="rb ${cls}">${v.toFixed(1)}</span>`;
+}
+const raw=v=>v===null?null:Math.round(v);
+
+/* ── EXPORT EXCEL ── */
+function exportToExcel() {
+  if(!S.fisicos&&!S.ebooks&&!S.alumnos&&!S.prestamos){alert('No hay datos cargados para exportar.');return;}
+  const wb=XLSX.utils.book_new();
+  const rows=computeRows();
+
+  /* Hoja 1: KPIs del sistema */
+  const totTit=rows.reduce((a,r)=>a+(r.totTit||0),0);
+  const totEjm=rows.reduce((a,r)=>a+(r.totEjm||0),0);
+  const totAl=S.alumnos?rows.reduce((a,r)=>a+(r.alTot||0),0):null;
+  const totPr=S.prestamos?rows.reduce((a,r)=>a+(r.prestamos||0),0):null;
+  const avgRatio=totTit&&totAl?+(totTit/totAl).toFixed(1):null;
+  const d=new Date();
+  const fechaStr=d.toLocaleDateString('es-CL',{day:'numeric',month:'long',year:'numeric'});
+  const ws1=XLSX.utils.aoa_to_sheet([
+    ['Panel de Indicadores Bibliográficos · Sistema de Bibliotecas PUCV'],
+    ['Generado el '+fechaStr],
+    [],
+    ['INDICADOR','VALOR','NOTAS'],
+    ['Total títulos',totTit,'Físicos + ebooks'],
+    ['Total ejemplares',totEjm,''],
+    ['Total alumnos',totAl??'Sin datos','Pregrado + postgrado'],
+    ['Ratio títulos/alumno promedio',avgRatio??'Sin datos','Verde ≥ 10 | Amarillo 5-9.9 | Rojo < 5'],
+    ['Total préstamos período',totPr??'Sin datos','Enero 2025 – '+fechaStr],
+  ]);
+  ws1['!cols']=[{wch:40},{wch:18},{wch:38}];
+  XLSX.utils.book_append_sheet(wb,ws1,'KPIs Sistema');
+
+  /* Hoja 2: Por Biblioteca */
+  const filterBib=document.getElementById('filterBib')?.value||'';
+  const sortBy=document.getElementById('filterSort')?.value||'name';
+  let filtRows=filterBib?rows.filter(r=>r.bib===filterBib):rows;
+  filtRows.sort((a,b)=>{
+    if(sortBy==='titulos') return (b.totTit||0)-(a.totTit||0);
+    if(sortBy==='alumnos') return (b.alTot||0)-(a.alTot||0);
+    if(sortBy==='ratio')   return (b.ratio||0)-(a.ratio||0);
+    if(sortBy==='prestamos')return(b.prestamos||0)-(a.prestamos||0);
+    return a.name.localeCompare(b.name,'es');
+  });
+  const bibData=[
+    ['Biblioteca','Títulos físicos','Ejm. físicos','Títulos ebooks','Total títulos','Al. pregrado','Al. postgrado','Total alumnos','Ratio T/A','Préstamos','Prést./alumno'],
+    ...filtRows.map(r=>[
+      r.name, raw(r.titFis), raw(r.ejmFis), r.titEb||0, r.totTit,
+      raw(r.alPre), raw(r.alPos), raw(r.alTot),
+      r.ratio!==null?+r.ratio.toFixed(1):null,
+      raw(r.prestamos),
+      r.prAlumno!==null?+r.prAlumno.toFixed(1):null
+    ]),
+    [],
+    ['TOTALES / PROMEDIO',
+      S.fisicos?filtRows.reduce((a,r)=>a+(r.titFis||0),0):null,
+      S.fisicos?filtRows.reduce((a,r)=>a+(r.ejmFis||0),0):null,
+      S.ebooks?filtRows.reduce((a,r)=>a+(r.titEb||0),0):null,
+      filtRows.reduce((a,r)=>a+(r.totTit||0),0),
+      S.alumnos?filtRows.reduce((a,r)=>a+(r.alPre||0),0):null,
+      S.alumnos?filtRows.reduce((a,r)=>a+(r.alPos||0),0):null,
+      S.alumnos?filtRows.reduce((a,r)=>a+(r.alTot||0),0):null,
+      avgRatio,
+      S.prestamos?filtRows.reduce((a,r)=>a+(r.prestamos||0),0):null,
+      null
+    ]
+  ];
+  const ws2=XLSX.utils.aoa_to_sheet(bibData);
+  ws2['!cols']=[{wch:22},{wch:15},{wch:13},{wch:15},{wch:14},{wch:13},{wch:14},{wch:14},{wch:10},{wch:13},{wch:13}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Por Biblioteca');
+
+  /* Hoja 3: Por UA (si hay datos) */
+  if(S.ua.length){
+    const uaData=[
+      ['Biblioteca','UA','Títulos','Ejemplares','Alumnos UA (ingresados)','Ratio T/A','Nota'],
+      ...S.ua.slice().sort((a,b)=>a.bib.localeCompare(b.bib)||a.ua.localeCompare(b.ua)).map(x=>{
+        const uaAl=S.uaAlumnos[x.ua]||null;
+        const ratio=x.titulos&&uaAl?+(x.titulos/uaAl).toFixed(1):null;
+        return[NAMES[x.bib]||x.bib, x.ua, x.titulos, x.ejemplares,
+          uaAl, ratio,
+          uaAl?'':'Ingresa alumnos UA para calcular ratio'];
+      })
+    ];
+    const ws3=XLSX.utils.aoa_to_sheet(uaData);
+    ws3['!cols']=[{wch:22},{wch:12},{wch:10},{wch:12},{wch:22},{wch:10},{wch:32}];
+    XLSX.utils.book_append_sheet(wb,ws3,'Por UA');
+  }
+
+  const dateTag=d.toLocaleDateString('es-CL').replace(/\//g,'-');
+  XLSX.writeFile(wb,`Panel_Indicadores_KOHA_${dateTag}.xlsx`);
+}
+
+/* ── MODAL EDITAR NOMBRES ── */
+function openNameEditor(){
+  document.getElementById('nameModal').classList.add('open');
+  renderNameTable();
+}
+function closeNameEditor(){document.getElementById('nameModal').classList.remove('open');}
+function renderNameTable(){
+  document.getElementById('nameTable').innerHTML=Object.keys(ORIGINAL_NAMES).map(code=>`
+    <tr>
+      <td class="code">${code}</td>
+      <td><input class="name-input" type="text" data-code="${code}" value="${NAMES[code]||code}" placeholder="${code}"></td>
+    </tr>`).join('');
+}
+function saveNames(){
+  document.querySelectorAll('#nameTable .name-input').forEach(inp=>{
+    const code=inp.dataset.code;
+    NAMES[code]=(inp.value.trim()||code);
+  });
+  closeNameEditor();
+  render();
+}
+function resetNames(){
+  NAMES={...ORIGINAL_NAMES};
+  renderNameTable();
+}
+document.getElementById('nameModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeNameEditor();});
+
+/* ── RENDER ── */
+function renderChips(){
+  document.getElementById('chipsList').innerHTML=FILE_DEFS.map(fd=>{
+    const loaded=S[fd.id]!==null;
+    const count=loaded?Object.keys(S[fd.id]).length:0;
+    return`<div class="sb-file ${loaded?'loaded':''}">
+      <input type="file" multiple accept=".csv" onchange="handleFiles([...this.files]);this.value=''">
+      <div class="sb-file-dot"></div>
+      <div class="sb-file-info">
+        <div class="sb-file-name">${fd.label}</div>
+        <div class="sb-file-hint">${loaded?count+' bibliotecas · OK':fd.hint}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderKPIs(rows){
+  const any=S.fisicos||S.ebooks||S.alumnos||S.prestamos;
+  if(!any){
+    document.getElementById('kpiGrid').innerHTML=`<div style="grid-column:1/-1"><div class="empty-state">
+      <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div>
+      <h3>Sin datos cargados</h3><p>Arrastra los CSV de KOHA al panel izquierdo</p></div></div>`;
+    document.getElementById('tableSection').style.display='none';
+    document.getElementById('btnExport').classList.add('disabled'); return;
+  }
+  const totTit=rows.reduce((a,r)=>a+(r.totTit||0),0);
+  const totEjm=rows.reduce((a,r)=>a+(r.totEjm||0),0);
+  const totAl=S.alumnos?rows.reduce((a,r)=>a+(r.alTot||0),0):null;
+  const totPr=S.prestamos?rows.reduce((a,r)=>a+(r.prestamos||0),0):null;
+  const avgRatio=totTit&&totAl?totTit/totAl:null;
+  const cards=[
+    {lbl:'Total títulos',     val:totTit.toLocaleString('es-CL'), aux:'Físicos + ebooks'},
+    {lbl:'Total ejemplares',  val:totEjm.toLocaleString('es-CL'), aux:S.ebooks?'Incl. ebooks':'Solo físicos'},
+    {lbl:'Total alumnos',     val:totAl!==null?totAl.toLocaleString('es-CL'):'—', aux:'Pregrado + postgrado'},
+    {lbl:'Ratio títulos/alumno', val:avgRatio!==null?avgRatio.toFixed(1):'—', aux:'Promedio sistema', accent:true},
+    ...(totPr!==null?[{lbl:'Préstamos período', val:totPr.toLocaleString('es-CL'), aux:'Ene 2025 – hoy'}]:[]),
+  ];
+  document.getElementById('kpiGrid').innerHTML=cards.map(c=>`
+    <div class="kpi-card ${c.accent?'accent':''}">
+      <div class="kpi-card-lbl">${c.lbl}</div>
+      <div class="kpi-card-val">${c.val}</div>
+      <div class="kpi-card-aux">${c.aux}</div>
+    </div>`).join('');
+  document.getElementById('tableSection').style.display='';
+  document.getElementById('btnExport').classList.remove('disabled');
+}
+
+function renderMain(){
+  const filterBib=document.getElementById('filterBib')?.value||'';
+  const sortBy=document.getElementById('filterSort')?.value||'name';
+  let rows=computeRows();
+  if(filterBib) rows=rows.filter(r=>r.bib===filterBib);
+  rows.sort((a,b)=>{
+    if(sortBy==='titulos')  return(b.totTit||0)-(a.totTit||0);
+    if(sortBy==='alumnos')  return(b.alTot||0)-(a.alTot||0);
+    if(sortBy==='ratio')    return(b.ratio||0)-(a.ratio||0);
+    if(sortBy==='prestamos')return(b.prestamos||0)-(a.prestamos||0);
+    return a.name.localeCompare(b.name,'es');
+  });
+  const tot={
+    titFis:S.fisicos?rows.reduce((a,r)=>a+(r.titFis||0),0):null,
+    ejmFis:S.fisicos?rows.reduce((a,r)=>a+(r.ejmFis||0),0):null,
+    titEb: S.ebooks ?rows.reduce((a,r)=>a+(r.titEb||0),0):null,
+    totTit:rows.reduce((a,r)=>a+(r.totTit||0),0),
+    totEjm:rows.reduce((a,r)=>a+(r.totEjm||0),0),
+    alPre: S.alumnos?rows.reduce((a,r)=>a+(r.alPre||0),0):null,
+    alPos: S.alumnos?rows.reduce((a,r)=>a+(r.alPos||0),0):null,
+    alTot: S.alumnos?rows.reduce((a,r)=>a+(r.alTot||0),0):null,
+    pr:    S.prestamos?rows.reduce((a,r)=>a+(r.prestamos||0),0):null,
+  };
+  const avgR=tot.totTit&&tot.alTot?tot.totTit/tot.alTot:null;
+  const avgPA=tot.pr&&tot.alTot?tot.pr/tot.alTot:null;
+
+  document.getElementById('mainBody').innerHTML=rows.map(r=>`<tr>
+    <td>${r.name}</td>
+    <td>${n0(r.titFis)}</td><td>${n0(r.ejmFis)}</td>
+    <td>${r.titEb>0?r.titEb.toLocaleString('es-CL'):'<span class="miss">0</span>'}</td>
+    <td><strong>${r.totTit.toLocaleString('es-CL')}</strong></td>
+    <td>${n0(r.alPre)}</td><td>${n0(r.alPos)}</td><td>${n0(r.alTot)}</td>
+    <td>${badge(r.ratio,10,5)}</td>
+    <td>${n0(r.prestamos)}</td>
+    <td>${badge(r.prAlumno,5,2)}</td>
+  </tr>`).join('');
+
+  document.getElementById('mainFoot').innerHTML=`<tr>
+    <td>Total / promedio</td>
+    <td>${n0(tot.titFis)}</td><td>${n0(tot.ejmFis)}</td>
+    <td>${tot.titEb!==null?tot.titEb.toLocaleString('es-CL'):'<span class="miss">—</span>'}</td>
+    <td><strong>${tot.totTit.toLocaleString('es-CL')}</strong></td>
+    <td>${n0(tot.alPre)}</td><td>${n0(tot.alPos)}</td><td>${n0(tot.alTot)}</td>
+    <td>${badge(avgR,10,5)}</td>
+    <td>${tot.pr!==null?tot.pr.toLocaleString('es-CL'):'<span class="miss">—</span>'}</td>
+    <td>${badge(avgPA,5,2)}</td>
+  </tr>`;
+
+  const sel=document.getElementById('filterBib');
+  if(sel&&sel.options.length===1) MAIN.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=NAMES[b]||b;sel.appendChild(o);});
+  else if(sel) Array.from(sel.options).forEach((o,i)=>{if(i>0)o.textContent=NAMES[o.value]||o.value;});
+}
+
+function renderUA(){
+  const el=document.getElementById('uaSection');
+  if(!S.ua.length){
+    el.innerHTML=`<div class="ua-empty">
+      <p>Sube los exports del informe <strong>"Títulos y ejemplares por UA"</strong><br>
+      (uno por unidad académica — se consolidan automáticamente).</p>
+      <label class="btn-add-ua" style="display:inline-flex;margin:0 auto">
+        <input type="file" multiple accept=".csv" onchange="handleFiles([...this.files],true);this.value=''">
+        + Subir archivos de UA
+      </label>
+    </div>`; return;
+  }
+  const uaList=[...new Set(S.ua.map(x=>x.ua))].sort();
+  const uaRows=S.ua.slice().sort((a,b)=>a.bib.localeCompare(b.bib)||a.ua.localeCompare(b.ua));
+  el.innerHTML=`
+    <div class="ua-add-bar">
+      ${uaList.map(ua=>`<span class="ua-tag">${ua}<button onclick="removeUA('${ua}')" title="Quitar">×</button></span>`).join('')}
+      <label class="btn-add-ua"><input type="file" multiple accept=".csv" onchange="handleFiles([...this.files],true);this.value=''">+ Agregar UA</label>
+    </div>
+    <span class="ua-al-hint">* Ingresa los alumnos matriculados en cada UA para obtener el ratio correcto a nivel de carrera.</span>
+    <div style="display:flex;align-items:flex-start;gap:10px;background:#EBF3FB;border:1px solid #B5D4F4;border-radius:var(--r);padding:.625rem .875rem;margin:.5rem 0 .75rem">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span style="font-size:12px;color:#0C447C;line-height:1.5">
+        <strong>¿Por qué el ratio difiere del panel superior?</strong> El panel por biblioteca contabiliza <em>todos los títulos físicos de la biblioteca</em>, incluyendo colecciones compartidas entre carreras. Este panel usa solo los títulos del informe "Títulos por UA", que filtra exclusivamente el material asignado a esa carrera — por eso el ratio puede ser menor y es el <strong>dato correcto para usar en informes de acreditación por carrera</strong>.
+      </span>
+    </div>
+    <div class="tbl-wrap" style="margin-top:.6rem"><table>
+      <thead><tr>
+        <th style="text-align:left">Biblioteca</th>
+        <th style="text-align:left">UA</th>
+        <th>Títulos</th>
+        <th>Ejemplares</th>
+        <th>Alumnos UA *</th>
+        <th>Ratio T/A</th>
+        <th style="width:36px"></th>
+      </tr></thead>
+      <tbody>${uaRows.map(x=>{
+        const uaAl=S.uaAlumnos[x.ua]||null;
+        const ratio=(x.titulos&&uaAl)?x.titulos/uaAl:null;
+        return`<tr data-ua="${x.ua}">
+          <td>${NAMES[x.bib]||x.bib}</td>
+          <td style="text-align:left;font-family:var(--mono);font-size:11px">${x.ua}</td>
+          <td>${x.titulos.toLocaleString('es-CL')}</td>
+          <td>${x.ejemplares.toLocaleString('es-CL')}</td>
+          <td><input class="ua-al-input" type="number" min="1" placeholder="Nº alumnos"
+            value="${uaAl||''}"
+            oninput="setUAAlumnos('${x.ua}',this.value)"
+            title="Ingresa el número de alumnos matriculados en esta UA"></td>
+          <td class="ua-ratio-cell">${badge(ratio,10,5)}</td>
+          <td style="text-align:center"><button onclick="removeUA('${x.ua}')" title="Quitar UA"
+            style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 4px">×</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+}
+
+function removeUA(ua){S.ua=S.ua.filter(x=>x.ua!==ua);delete S.uaAlumnos[ua];render();}
+
+function setUAAlumnos(ua, val){
+  const n=parseInt(val);
+  if(!isNaN(n)&&n>0) S.uaAlumnos[ua]=n;
+  else delete S.uaAlumnos[ua];
+  const row=document.querySelector(`tr[data-ua="${ua}"]`);
+  if(!row) return;
+  const tit=S.ua.find(x=>x.ua===ua)?.titulos||0;
+  const ratio=(tit&&S.uaAlumnos[ua])?tit/S.uaAlumnos[ua]:null;
+  row.querySelector('.ua-ratio-cell').innerHTML=badge(ratio,10,5);
+}
+
+function render(){
+  renderChips();
+  const rows=computeRows();
+  renderKPIs(rows);
+  if(S.fisicos||S.ebooks||S.alumnos||S.prestamos) renderMain();
+  renderUA();
+}
+
+/* ── Init ── */
+const dz=document.getElementById('dropZone');
+document.getElementById('mainInput').addEventListener('change',e=>{handleFiles([...e.target.files]);e.target.value='';});
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');handleFiles([...e.dataTransfer.files]);});
+
+const d=new Date();
+document.getElementById('dateBadge').textContent='Período: Enero 2025 – '+d.toLocaleDateString('es-CL',{day:'numeric',month:'long',year:'numeric'});
+render();
+</script>
+</body>
+</html>
