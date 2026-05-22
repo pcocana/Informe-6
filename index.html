@@ -670,7 +670,7 @@ function processPrestamos(rows) {
 function processPrestamosUA(rows) {
   const m = {};
   rows.forEach(r => {
-    const ua = (r.ua || '').trim();
+    const ua = norm(r.ua || '');   // normalizado: sin tildes, minúsculas, sin espacios extra
     if (!ua) return;
     if (!m[ua]) m[ua] = { total: 0, pre: 0, pos: 0 };
     // Cada fila vale 1 (el campo 'tansaccion' siempre es 1, pero lo leemos por si acaso)
@@ -1343,7 +1343,7 @@ function setUAAlumnos(ua, val) {
     const ratioCell = cnaRow.querySelector('.cna-ua-ratio-cell');
     if (ratioCell) ratioCell.innerHTML = badge(ratio, 10, 5);
     // Indicador [37] CNA: (Préstamos UA × 100) ÷ Ejemplares UA
-    const prUA      = S.prestamosUA?.[ua];
+    const prUA      = S.prestamosUA?.[norm(ua)];
     const ind37cna  = prUA && x?.ejemplares ? (prUA.total * 100) / x.ejemplares : null;
     const ind37Cell = cnaRow.querySelector('.cna-ua-ind37-cell');
     if (ind37Cell) ind37Cell.innerHTML = badge(ind37cna, 20, 5);
@@ -1385,7 +1385,7 @@ function renderCNA() {
       const ratioCol = titFis && uaAl ? titFis / uaAl : null;
 
       // [37] Método CNA — (Préstamos UA × 100) ÷ Ejemplares UA
-      const prUA      = S.prestamosUA?.[x.ua];
+      const prUA      = S.prestamosUA?.[norm(x.ua)];
       const ind37cna  = prUA && x.ejemplares ? (prUA.total * 100) / x.ejemplares : null;
       const prTxt     = prUA
         ? `${prUA.total.toLocaleString('es-CL')}<span class="miss" style="font-size:10px;display:block">${prUA.pre} pre / ${prUA.pos} pos</span>`
@@ -1582,7 +1582,7 @@ function exportCNA() {
       const titFis = Math.max(0, x.titulos - x.ejmEbooks);
       const volFis = Math.max(0, x.ejemplares - x.ejmEbooks);
       const ratioCol = titFis && uaAl ? +(titFis / uaAl).toFixed(2) : null;
-      const prUA   = S.prestamosUA?.[x.ua];
+      const prUA   = S.prestamosUA?.[norm(x.ua)];
       const ind37cna = prUA && x.ejemplares ? +((prUA.total * 100) / x.ejemplares).toFixed(2) : null;
       const bibRow = rows.find(r => r.bib === x.bib);
       const ind37alt = bibRow?.prestamos && bibRow?.ejemplares ? +((bibRow.prestamos * 100) / bibRow.ejemplares).toFixed(2) : null;
