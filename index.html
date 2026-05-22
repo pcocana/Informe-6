@@ -158,6 +158,21 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
 .btn-secondary{padding:7px 18px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:13px;font-family:var(--font);cursor:pointer;transition:background .15s}
 .btn-secondary:hover{background:var(--bg)}
 
+/* ── Ficha CNA ── */
+.cna-method-toggle{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.cna-method-btn{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border2);background:var(--surface);color:var(--text2);font-family:var(--font);transition:all .15s}
+.cna-method-btn.active{border-color:var(--navy);background:var(--navy);color:#fff}
+.cna-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;font-family:var(--mono);letter-spacing:.03em}
+.cna-badge-cna{background:#EDE9FE;color:#4C1D95;border:1px solid #C4B5FD}
+.cna-badge-alt{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D}
+.cna-note{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--text2);line-height:1.55;padding:.5rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-bottom:.75rem}
+.cna-note svg{flex-shrink:0;margin-top:1px}
+.method-block{border:1.5px solid var(--border);border-radius:var(--r2);margin-bottom:1rem;overflow:hidden}
+.method-block-head{display:flex;align-items:center;gap:8px;padding:.625rem 1rem;background:var(--bg);border-bottom:1px solid var(--border)}
+.method-block-head h4{font-size:12px;font-weight:600;color:var(--text)}
+.method-block-head p{font-size:11px;color:var(--text2);margin-top:1px}
+.method-block-body{padding:.75rem 1rem 1rem}
+
 @media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto}.main{padding:1rem}}
 </style>
 </head>
@@ -184,12 +199,12 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
     <p><strong>Arrastra CSV aquí</strong><br>o haz clic para seleccionar</p>
   </div>
 
-  <div class="sb-section">Estado de archivos</div>
+  <div class="sb-section">Estado de informes</div>
   <div class="sb-files" id="chipsList"></div>
 
   <div class="sb-section">Herramientas</div>
   <div class="sb-actions">
-    <button class="sb-btn" onclick="exportToExcel()" id="btnExport">
+    <button class="sb-btn disabled" onclick="exportToExcel()" id="btnExport">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
         <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
@@ -208,6 +223,8 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
   <div class="sb-footer">
     Los archivos se procesan localmente.<br>
     Ningún dato sale de este navegador.<br><br>
+    Informes oficiales: 46 · 72 · 78 · 106<br>
+    72 = Préstamos (desde 2019) · 78 = Alumnos<br>
     Sistema de Bibliotecas PUCV · 2025
   </div>
 </aside>
@@ -225,7 +242,7 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
     <div class="kpi-grid" id="kpiGrid">
       <div style="grid-column:1/-1">
         <div class="empty-state">
-          <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div>
+          <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div>
           <h3>Sin datos cargados</h3>
           <p>Arrastra los CSV de KOHA al panel izquierdo</p>
         </div>
@@ -249,7 +266,8 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
     <div style="display:flex;align-items:flex-start;gap:10px;background:#FFF8E6;border:1px solid #F5D87A;border-radius:var(--r);padding:.625rem .875rem;margin-bottom:.875rem">
       <svg viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span style="font-size:12px;color:#854F0B;line-height:1.5">
-        <strong>Ratio por biblioteca vs. ratio por UA:</strong> el ratio de esta tabla usa el <em>total de títulos de la biblioteca</em> (informe de recursos físicos), que puede incluir material de varias carreras y colecciones transversales. El ratio en la sección <strong>Análisis por UA</strong> usa solo los títulos asignados a esa unidad académica específica, por lo que puede ser menor y es el <strong>más representativo para acreditación por carrera</strong>.
+        <strong>Ratio calculado solo con títulos físicos:</strong> los eBooks están excluidos porque no generan préstamos físicos registrados en circulación. La columna <em>Ratio Fís./A</em> divide los <em>títulos físicos</em> (Informe 46 menos eBooks) por el total de alumnos. La columna <em>Total títulos</em> muestra el universo completo (físicos + eBooks) solo como referencia.
+        El ratio en <strong>Análisis por UA</strong> aplica la misma lógica con los datos del Informe 106.
       </span>
     </div>
     <div class="filter-bar">
@@ -271,15 +289,15 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
         <thead>
           <tr>
             <th rowspan="2" style="text-align:left;vertical-align:bottom">Biblioteca</th>
-            <th colspan="3"><span class="grp">Colección</span></th>
-            <th colspan="3"><span class="grp">Usuarios</span></th>
+            <th colspan="3"><span class="grp">Colección (Inf. 46)</span></th>
+            <th colspan="3"><span class="grp">Usuarios (Inf. 78)</span></th>
             <th><span class="grp">KPI</span></th>
-            <th colspan="2"><span class="grp">Circulación</span></th>
+            <th colspan="2"><span class="grp">Circulación (Inf. 72)</span></th>
           </tr>
           <tr>
-            <th>Títulos físicos</th><th>Ejm. físicos</th><th>Títulos ebooks</th>
-            <th>Total títulos</th><th>Al. pregrado</th><th>Al. postgrado</th>
-            <th>Total alumnos</th><th>Ratio T/A</th>
+            <th>Total títulos</th><th>Tít. físicos</th><th>eBooks</th>
+            <th>Al. pregrado</th><th>Al. postgrado</th><th>Total alumnos</th>
+            <th title="Títulos físicos ÷ Alumnos (eBooks excluidos)">Ratio Fís./A</th>
             <th>Préstamos</th><th>Prést./alumno</th>
           </tr>
         </thead>
@@ -289,8 +307,19 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
     </div>
   </div>
 
+  <div class="section" id="cnaSectionWrap" style="display:none">
+    <div class="section-head">
+      <div class="section-title">Ficha Acreditación CNA · Recursos bibliográficos</div>
+      <button class="btn-export" onclick="exportCNA()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar ficha CNA
+      </button>
+    </div>
+    <div id="cnaSection"></div>
+  </div>
+
   <div class="section">
-    <div class="section-head"><div class="section-title">Análisis por unidad académica (UA)</div></div>
+    <div class="section-head"><div class="section-title">Análisis por unidad académica (UA) — Informe 106</div></div>
     <div id="uaSection"></div>
   </div>
 </main>
@@ -320,6 +349,9 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
 </div>
 
 <script>
+// ─────────────────────────────────────────────
+//  CONFIGURACIÓN: Nombres y bibliotecas activas
+// ─────────────────────────────────────────────
 const ORIGINAL_NAMES = {
   BIBAGR:'Agronomía', BIBALI:'Alimentos', BIBARQ:'Arquitectura', BIBART:'Arte',
   BIBCFT:'CFT', BIBCUR:'Curauma', BIBDER:'Derecho', BIBEDU:'Educación',
@@ -330,430 +362,1149 @@ const ORIGINAL_NAMES = {
 };
 let NAMES = {...ORIGINAL_NAMES};
 
-const MAIN = ['BIBAGR','BIBALI','BIBARQ','BIBART','BIBCUR','BIBDER','BIBEDU',
-  'BIBENE','BIBGIM','BIBHIS','BIBINC','BIBING','BIBMAT','BIBMEC','BIBMUS','BIBTEO'];
-
-const FILE_DEFS = [
-  {id:'fisicos',  label:'Recursos físicos',     hint:'homebranch · Títulos · Físicos'},
-  {id:'ebooks',   label:'Ebooks',               hint:'homebranch · Títulos · Ebooks'},
-  {id:'alumnos',  label:'Alumnos por biblioteca',hint:'branchcode · categorycode'},
-  {id:'prestamos',label:'Actividad de préstamos',hint:'BIBLIONUMBER · Count of items'},
+// Bibliotecas activas que se muestran en el panel principal
+const MAIN = [
+  'BIBAGR','BIBALI','BIBARQ','BIBART','BIBCUR','BIBDER','BIBEDU',
+  'BIBENE','BIBGIM','BIBHIS','BIBINC','BIBING','BIBMAT','BIBMEC','BIBMUS','BIBTEO'
 ];
 
-const S = {fisicos:null, ebooks:null, alumnos:null, prestamos:null, ua:[], uaAlumnos:{}};
+// Bibliotecas excluidas del procesamiento (colegio, dirección, etc.)
+const EXCLUIR = ['DIRBIB','BIBRCV','BIBMUS'];
 
-/* ── CSV ── */
+// ─────────────────────────────────────────────
+//  DEFINICIÓN DE INFORMES OFICIALES
+//  Inf 46  → colección (títulos, ejs físicos, eBooks) — reemplaza 62 y 63
+//  Inf 72  → alumnos por biblioteca
+//  Inf 78  → actividad de préstamos
+//  Inf 106 → títulos y ejemplares por UA — reemplaza 133
+// ─────────────────────────────────────────────
+const FILE_DEFS = [
+  {
+    id:'completo',
+    label:'Informe 46 · Colección',
+    hint:'Bib. de Origen · Títulos · Ejm · eBooks'
+  },
+  {
+    id:'prestamos',
+    label:'Informe 72 · Préstamos (desde 2019)',
+    hint:'Biblioteca Actual · Count of items'
+  },
+  {
+    id:'alumnos',
+    label:'Informe 78 · Alumnos por biblioteca',
+    hint:'branchcode · categorycode · NumberEnrolled'
+  },
+  {
+    id:'ua',
+    label:'Informe 106 · Títulos por UA',
+    hint:'Unidad_academica · Títulos · Ejemplares · eBooks',
+    isArray: true   // S.ua es array — se acumulan varios archivos
+  },
+  {
+    id:'prestamosUA',
+    label:'Préstamos por UA · Indicador [37] CNA',
+    hint:'Fecha · Notas · Título · UA · tansaccion'
+  },
+];
+
+// ─────────────────────────────────────────────
+//  ESTADO GLOBAL
+// ─────────────────────────────────────────────
+const S = {
+  completo:    null,   // Informe 46
+  alumnos:     null,   // Informe 78
+  prestamos:   null,   // Informe 72
+  prestamosUA: null,   // Préstamos por UA (cada fila = 1 transacción) → Indicador [37] CNA
+  ua:          [],     // Informe 106 (acumulativo por UA)
+  uaAlumnos:   {},     // Alumnos ingresados manualmente por UA (sección UA)
+  alumnosCNA:  {}      // Alumnos ingresados manualmente por biblioteca (sección CNA método alt.)
+};
+
+// ─────────────────────────────────────────────
+//  HELPERS DE ENCODING Y NORMALIZACIÓN
+// ─────────────────────────────────────────────
+
+/**
+ * Normaliza un string: elimina tildes/diacríticos, pasa a minúsculas y recorta espacios.
+ * Permite comparar columnas independientemente de encoding o acentuación.
+ * Ejemplo: 'Títulos' → 'titulos', 'Biblioteca de Origen' → 'biblioteca de origen'
+ */
+function norm(s) {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+/**
+ * Lee un archivo con encoding correcto.
+ * KOHA exporta en Windows-1252 (CP1252), pero el navegador asume UTF-8 con file.text().
+ * Estrategia: intenta UTF-8 estricto primero; si falla (bytes inválidos), usa windows-1252.
+ */
+async function readFileText(file) {
+  const buf = await file.arrayBuffer();
+  try {
+    // UTF-8 con fatal:true falla ante bytes inválidos como 0xED (í en CP1252)
+    return new TextDecoder('utf-8', {fatal: true}).decode(buf);
+  } catch {
+    // Fallback: decodificar como Windows-1252 (estándar de exportación de KOHA)
+    return new TextDecoder('windows-1252').decode(buf);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  PARSEO CSV (delimitador ;)
+// ─────────────────────────────────────────────
 function parseCSV(text) {
+  // Elimina BOM si existe
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
   const lines = text.trim().split(/\r?\n/);
-  if (!lines.length) return {headers:[],rows:[]};
+  if (!lines.length) return {headers:[], rows:[]};
+
   const parseRow = l => {
-    const cells=[]; let cell='', inQ=false;
-    for (let i=0;i<l.length;i++) {
-      const c=l[i];
-      if(c==='"'){inQ=!inQ;continue;}
-      if(c===';'&&!inQ){cells.push(cell.trim());cell='';}
-      else cell+=c;
+    const cells = []; let cell = '', inQ = false;
+    for (let i = 0; i < l.length; i++) {
+      const c = l[i];
+      if (c === '"') { inQ = !inQ; continue; }
+      if (c === ';' && !inQ) { cells.push(cell.trim()); cell = ''; }
+      else cell += c;
     }
     cells.push(cell.trim());
     return cells;
   };
-  const headers = parseRow(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
-  const rows = lines.slice(1).filter(l=>l.trim()).map(l=>{
-    const vals=parseRow(l);
-    const obj={};
-    headers.forEach((h,i)=>obj[h]=(vals[i]||'').replace(/^"|"$/g,'').trim());
+
+  const headers = parseRow(lines[0]).map(h => h.replace(/^"|"$/g,'').trim());
+  const rows = lines.slice(1).filter(l => l.trim()).map(l => {
+    const vals = parseRow(l);
+    const obj = {};
+    headers.forEach((h, i) => {
+      const val = (vals[i] || '').replace(/^"|"$/g,'').trim();
+      obj[h]       = val;  // clave original  (ej: 'Títulos')
+      obj[norm(h)] = val;  // clave sin tildes (ej: 'titulos') — resistente a CP1252/UTF-8
+    });
     return obj;
   });
   return {headers, rows};
 }
 
+// ─────────────────────────────────────────────
+//  DETECCIÓN AUTOMÁTICA DE TIPO
+// ─────────────────────────────────────────────
 function detectType(filename, headers) {
-  const fn=filename.toLowerCase();
-  const hs=new Set(headers.map(h=>h.toLowerCase()));
-  if(hs.has('categorycode')||hs.has('numberenrolled')) return 'alumnos';
-  if(hs.has('unidad_academica')) return 'ua';
-  if(hs.has('biblionumber')||hs.has('count of items')) return 'prestamos';
-  if(hs.has('homebranch')&&hs.has('títulos')) return fn.includes('ebook')?'ebooks':'fisicos';
+  const fn = filename.toLowerCase();
+  // Normalizar cabeceras: sin tildes, minúsculas → resistente a CP1252 mal decodificado
+  const hs = new Set(headers.map(h => norm(h)));
+
+  // Informe 46: colección por biblioteca (Biblioteca de Origen + titulos + ebooks/libros)
+  if (hs.has('biblioteca de origen') && hs.has('titulos') && (hs.has('ebooks') || hs.has('libros'))) return 'completo';
+
+  // Préstamos por UA (cada fila = 1 transacción): columna UA + tansaccion/transaccion
+  if (hs.has('ua') && (hs.has('tansaccion') || hs.has('transaccion'))) return 'prestamosUA';
+
+  // Informe 78: alumnos por biblioteca
+  if (hs.has('categorycode') || hs.has('numberenrolled')) return 'alumnos';
+
+  // Informe 106: títulos por unidad académica
+  if (hs.has('unidad_academica')) return 'ua';
+
+  // Informe 72: préstamos
+  if (hs.has('biblionumber') || hs.has('count of items') || hs.has('biblioteca actual')) return 'prestamos';
+
+  // Fallback legacy: informes separados físicos/ebooks (obsoletos)
+  if (hs.has('homebranch') && hs.has('titulos')) return fn.includes('ebook') ? 'ebooks' : 'fisicos';
+
   return 'unknown';
 }
 
-/* ── Processors ── */
-function processAlumnos(rows) {
-  const m={};
-  rows.forEach(r=>{
-    const bib=r.branchcode||r.Branchcode||''; if(!bib) return;
-    if(!m[bib]) m[bib]={pre:0,pos:0};
-    const n=parseInt(r.NumberEnrolled||r.numberenrolled||0)||0;
-    if((r.categorycode||'').toUpperCase().includes('POS')) m[bib].pos+=n;
-    else m[bib].pre+=n;
+// ─────────────────────────────────────────────
+//  PROCESADORES
+// ─────────────────────────────────────────────
+
+/**
+ * processInforme46 — Informe oficial de colección (Inf. 46)
+ * Columnas: Biblioteca de Origen | Títulos | Ejemplares | eBooks
+ * Las claves normalizadas ('titulos', 'ebooks', etc.) resuelven el problema de encoding CP1252.
+ */
+function processInforme46(rows) {
+  const m = {};
+  rows.forEach(r => {
+    // Usar clave normalizada 'biblioteca de origen' (sin tildes → funciona con CP1252 y UTF-8)
+    const bib = (r['biblioteca de origen'] || '').trim();
+    if (!bib || bib.startsWith('FDO') || EXCLUIR.includes(bib)) return;
+
+    const n = k => parseInt(r[k] || 0) || 0;
+    // Acceso por clave normalizada: 'titulos', 'ejemplares', 'ebooks'
+    const titulos    = n('titulos');
+    const ejemplares = n('ejemplares');
+    const ejmEbooks  = n('ebooks');
+
+    // Detectar formato legacy (informe completo antiguo con columnas detalladas)
+    const esLegacy = r['libros'] !== undefined;
+    let ejmLibros, ejmTesis, titBiblio;
+
+    if (esLegacy) {
+      ejmLibros = n('libros') + n('libro de alta demanda') + n('libro para uso en sala')
+                + n('libro de acceso restringido') + n('libro de refrencia');
+      ejmTesis  = n('tesis');
+      titBiblio = Math.max(0, titulos - ejmTesis);
+    } else {
+      // Informe 46: ejemplares físicos = total − eBooks
+      ejmLibros = Math.max(0, ejemplares - ejmEbooks);
+      ejmTesis  = null;
+      titBiblio = titulos;
+    }
+
+    // Títulos físicos: excluye eBooks (aprox. 1 ítem eBook ≈ 1 título eBook)
+    // Es la base correcta del ratio para acreditación: solo colección circulable
+    const titFisicos = Math.max(0, titulos - ejmEbooks);
+
+    m[bib] = { titulos, titFisicos, ejemplares, ejmLibros, ejmEbooks, ejmTesis, titBiblio };
   });
   return m;
-}
-function processColeccion(rows) {
-  const m={};
-  rows.forEach(r=>{
-    const bib=r.homebranch||r.Homebranch||''; if(!bib) return;
-    m[bib]={titulos:parseInt(r['Títulos']||r.Titulos||0)||0, ejemplares:parseInt(r.Ejemplares||0)||0};
-  });
-  return m;
-}
-function processPrestamos(rows) {
-  const m={};
-  rows.forEach(r=>{
-    const bib=(r['Biblioteca Actual']||'').trim(); if(!bib) return;
-    m[bib]=(m[bib]||0)+(parseInt(r['Count of items']||0)||0);
-  });
-  return m;
-}
-function processUA(rows) {
-  return rows.map(r=>({
-    bib:r.Biblioteca||'', ua:r.Unidad_academica||r.unidad_academica||'',
-    titulos:parseInt(r['Títulos']||r.Titulos||0)||0,
-    ejemplares:parseInt(r.Ejemplares||0)||0
-  })).filter(x=>x.bib&&x.ua);
 }
 
-async function handleFiles(files, isUA=false) {
+/**
+ * processAlumnos — Informe 78
+ * Columnas: branchcode | categorycode | NumberEnrolled
+ */
+function processAlumnos(rows) {
+  const m = {};
+  rows.forEach(r => {
+    const bib = r.branchcode || '';
+    if (!bib) return;
+    if (!m[bib]) m[bib] = {pre:0, pos:0};
+    const n = parseInt(r.numberenrolled || 0) || 0;
+    if ((r.categorycode || '').toUpperCase().includes('POS')) m[bib].pos += n;
+    else m[bib].pre += n;
+  });
+  return m;
+}
+
+/**
+ * processPrestamos — Informe 72 (rango desde 2019)
+ * Columnas: Biblioteca Actual | Count of items
+ */
+function processPrestamos(rows) {
+  const m = {};
+  rows.forEach(r => {
+    // 'biblioteca actual' y 'count of items' ya vienen normalizados por parseCSV
+    const bib = (r['biblioteca actual'] || '').trim();
+    if (!bib) return;
+    m[bib] = (m[bib] || 0) + (parseInt(r['count of items'] || 0) || 0);
+  });
+  return m;
+}
+
+/**
+ * processPrestamosUA — Préstamos por UA (Indicador [37] método CNA)
+ * Cada fila es 1 transacción de préstamo.
+ * Columnas: Fecha de transacción | Notas | Título | UA | tansaccion
+ * Nota: distingue pregrado/postgrado a partir del campo Notas.
+ */
+function processPrestamosUA(rows) {
+  const m = {};
+  rows.forEach(r => {
+    const ua = (r.ua || '').trim();
+    if (!ua) return;
+    if (!m[ua]) m[ua] = { total: 0, pre: 0, pos: 0 };
+    // Cada fila vale 1 (el campo 'tansaccion' siempre es 1, pero lo leemos por si acaso)
+    const n = parseInt(r.tansaccion || r.transaccion || 1) || 1;
+    m[ua].total += n;
+    const nota = (r.notas || '').toLowerCase();
+    if (nota.includes('postgrado')) m[ua].pos += n;
+    else                            m[ua].pre += n;
+  });
+  return m;
+}
+
+/**
+ * processUA — Informe 106
+ * Columnas: Unidad_academica | Títulos | Ejemplares | eBooks
+ * El informe 106 no incluye columna Biblioteca.
+ * Usa claves normalizadas para evitar problemas de encoding CP1252.
+ */
+function processUA(rows) {
+  return rows.map(r => ({
+    bib:       (r.biblioteca || '').trim(),
+    ua:        (r.unidad_academica || '').trim(),
+    titulos:   parseInt(r.titulos    || 0) || 0,   // clave sin tilde → funciona siempre
+    ejemplares:parseInt(r.ejemplares || 0) || 0,
+    ejmEbooks: parseInt(r.ebooks     || 0) || 0,
+  })).filter(x => x.ua);
+}
+
+// ─────────────────────────────────────────────
+//  MANEJADOR DE CARGA DE ARCHIVOS
+// ─────────────────────────────────────────────
+async function handleFiles(files, isUA = false) {
   for (const file of files) {
-    const text = await file.text();
-    const {headers,rows} = parseCSV(text);
-    if(!rows.length) continue;
-    const type = isUA?'ua':detectType(file.name,headers);
-    if(type==='ua') {
-      const entries=processUA(rows);
-      if(entries.length){S.ua=S.ua.filter(x=>!entries.find(e=>e.ua===x.ua&&e.bib===x.bib));S.ua.push(...entries);}
-    } else if(type==='alumnos')  S.alumnos  =processAlumnos(rows);
-    else if(type==='ebooks')     S.ebooks   =processColeccion(rows);
-    else if(type==='fisicos')    S.fisicos  =processColeccion(rows);
-    else if(type==='prestamos')  S.prestamos=processPrestamos(rows);
+    // readFileText maneja CP1252 (encoding de KOHA) con fallback automático desde UTF-8
+    const text = await readFileText(file);
+    const {headers, rows} = parseCSV(text);
+    if (!rows.length) { console.warn('Archivo sin filas:', file.name); continue; }
+
+    const type = isUA ? 'ua' : detectType(file.name, headers);
+
+    switch (type) {
+      case 'ua': {
+        const entries = processUA(rows);
+        if (entries.length) {
+          // Elimina entradas previas de la misma UA y agrega las nuevas
+          S.ua = S.ua.filter(x => !entries.find(e => e.ua === x.ua && e.bib === x.bib));
+          S.ua.push(...entries);
+        }
+        break;
+      }
+      case 'prestamosUA': {
+        // Acumula transacciones (un archivo puede ser solo para una UA)
+        const nuevo = processPrestamosUA(rows);
+        if (!S.prestamosUA) S.prestamosUA = {};
+        Object.entries(nuevo).forEach(([ua, data]) => {
+          if (!S.prestamosUA[ua]) S.prestamosUA[ua] = { total: 0, pre: 0, pos: 0 };
+          S.prestamosUA[ua].total += data.total;
+          S.prestamosUA[ua].pre   += data.pre;
+          S.prestamosUA[ua].pos   += data.pos;
+        });
+        break;
+      }
+      case 'completo':
+        S.completo = processInforme46(rows);
+        break;
+      case 'alumnos':
+        S.alumnos = processAlumnos(rows);
+        break;
+      case 'prestamos':
+        S.prestamos = processPrestamos(rows);
+        break;
+      default:
+        console.warn('Tipo de archivo no reconocido:', file.name, '— Cabeceras:', headers.join(', '));
+    }
   }
   render();
 }
 
-/* ── Compute ── */
+// ─────────────────────────────────────────────
+//  CÁLCULO DE FILAS (una por biblioteca activa)
+// ─────────────────────────────────────────────
 function computeRows() {
-  return MAIN.map(bib=>{
-    const fis=S.fisicos?.[bib], eb=S.ebooks?.[bib], al=S.alumnos?.[bib], pr=S.prestamos?.[bib]??null;
-    const titFis=fis?.titulos??null, ejmFis=fis?.ejemplares??null;
-    const titEb=eb?.titulos??0, ejmEb=eb?.ejemplares??0;
-    const totTit=(titFis??0)+titEb, totEjm=(ejmFis??0)+ejmEb;
-    const alPre=al?.pre??null, alPos=al?.pos??null;
-    const alTot=al?(al.pre+al.pos):null;
-    const ratio=(totTit>0&&alTot>0)?totTit/alTot:null;
-    const prAlumno=(pr!==null&&alTot)?pr/alTot:null;
-    return{bib,name:NAMES[bib]||bib,titFis,ejmFis,titEb,ejmEb,totTit,totEjm,alPre,alPos,alTot,ratio,prestamos:pr,prAlumno};
+  return MAIN.map(bib => {
+    const al = S.alumnos?.[bib];
+    const alPre   = al?.pre  ?? null;
+    const alPos   = al?.pos  ?? null;
+    const alTot   = al ? (al.pre + al.pos) : null;
+    const pr      = S.prestamos?.[bib] ?? null;
+    const prAlumno = (pr !== null && alTot) ? pr / alTot : null;
+
+    let titulos = null, titFisicos = null, titBiblio = null, ejemplares = null;
+    let ejmLibros = null, ejmEbooks = null, ejmTesis = null;
+    let fuente = '';
+
+    if (S.completo?.[bib]) {
+      // Informe 46 (fuente oficial)
+      const c = S.completo[bib];
+      titulos    = c.titulos;
+      titFisicos = c.titFisicos;  // títulos sin eBooks → base del ratio
+      titBiblio  = c.titBiblio;
+      ejemplares = c.ejemplares;
+      ejmLibros  = c.ejmLibros;
+      ejmEbooks  = c.ejmEbooks;
+      ejmTesis   = c.ejmTesis;
+      fuente = 'completo';
+    }
+
+    // Ratio para acreditación: solo títulos físicos (excluye eBooks — no tienen préstamo físico)
+    const ratioAcred = (titFisicos > 0 && alTot > 0) ? titFisicos / alTot : null;
+    // Ratio total de referencia (incluye eBooks)
+    const ratioTotal = (titulos    > 0 && alTot > 0) ? titulos    / alTot : null;
+
+    return {
+      bib, name: NAMES[bib] || bib,
+      titulos, titFisicos, titBiblio, ejemplares, ejmLibros, ejmEbooks, ejmTesis,
+      alPre, alPos, alTot,
+      ratioAcred, ratioTotal,
+      prestamos: pr, prAlumno,
+      fuente
+    };
   });
 }
 
-/* ── Helpers ── */
-const n0=v=>v===null?'<span class="miss">—</span>':Math.round(v).toLocaleString('es-CL');
-function badge(v,hi,lo){
-  if(v===null)return'<span class="miss">—</span>';
-  const cls=v>=hi?'rb-g':v>=lo?'rb-y':'rb-r';
-  return`<span class="rb ${cls}">${v.toFixed(1)}</span>`;
-}
-const raw=v=>v===null?null:Math.round(v);
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+const n0 = v => v === null
+  ? '<span class="miss">—</span>'
+  : Math.round(v).toLocaleString('es-CL');
 
-/* ── EXPORT EXCEL ── */
+function badge(v, hi, lo) {
+  if (v === null) return '<span class="miss">—</span>';
+  const cls = v >= hi ? 'rb-g' : v >= lo ? 'rb-y' : 'rb-r';
+  return `<span class="rb ${cls}">${v.toFixed(1)}</span>`;
+}
+
+const raw = v => (v === null || v === undefined) ? null : Math.round(v);
+
+// ─────────────────────────────────────────────
+//  EXPORTAR A EXCEL
+// ─────────────────────────────────────────────
 function exportToExcel() {
-  if(!S.fisicos&&!S.ebooks&&!S.alumnos&&!S.prestamos){alert('No hay datos cargados para exportar.');return;}
-  const wb=XLSX.utils.book_new();
-  const rows=computeRows();
+  const hayDatos = S.completo || S.alumnos || S.prestamos;
+  if (!hayDatos) { alert('No hay datos cargados para exportar.'); return; }
 
-  /* Hoja 1: KPIs del sistema */
-  const totTit=rows.reduce((a,r)=>a+(r.totTit||0),0);
-  const totEjm=rows.reduce((a,r)=>a+(r.totEjm||0),0);
-  const totAl=S.alumnos?rows.reduce((a,r)=>a+(r.alTot||0),0):null;
-  const totPr=S.prestamos?rows.reduce((a,r)=>a+(r.prestamos||0),0):null;
-  const avgRatio=totTit&&totAl?+(totTit/totAl).toFixed(1):null;
-  const d=new Date();
-  const fechaStr=d.toLocaleDateString('es-CL',{day:'numeric',month:'long',year:'numeric'});
-  const ws1=XLSX.utils.aoa_to_sheet([
+  const wb = XLSX.utils.book_new();
+  const rows = computeRows();
+  const d = new Date();
+  const fechaStr = d.toLocaleDateString('es-CL', {day:'numeric', month:'long', year:'numeric'});
+
+  /* ── Hoja 1: KPIs del sistema ── */
+  const totTit  = rows.reduce((a, r) => a + (r.titulos    || 0), 0);
+  const totFis  = rows.reduce((a, r) => a + (r.titFisicos || 0), 0);
+  const totEb   = rows.reduce((a, r) => a + (r.ejmEbooks  || 0), 0);
+  const totAl   = S.alumnos  ? rows.reduce((a, r) => a + (r.alTot    || 0), 0) : null;
+  const totPr   = S.prestamos? rows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null;
+  // Ratio usa solo títulos físicos (eBooks excluidos)
+  const avgRatio = totFis && totAl ? +(totFis / totAl).toFixed(1) : null;
+
+  const ws1 = XLSX.utils.aoa_to_sheet([
     ['Panel de Indicadores Bibliográficos · Sistema de Bibliotecas PUCV'],
-    ['Generado el '+fechaStr],
+    ['Generado el ' + fechaStr],
+    ['Informes utilizados: Informe 46 (colección) · Informe 72 (préstamos, desde 2019) · Informe 78 (alumnos) · Informe 106 (UA)'],
     [],
-    ['INDICADOR','VALOR','NOTAS'],
-    ['Total títulos',totTit,'Físicos + ebooks'],
-    ['Total ejemplares',totEjm,''],
-    ['Total alumnos',totAl??'Sin datos','Pregrado + postgrado'],
-    ['Ratio títulos/alumno promedio',avgRatio??'Sin datos','Verde ≥ 10 | Amarillo 5-9.9 | Rojo < 5'],
-    ['Total préstamos período',totPr??'Sin datos','Enero 2025 – '+fechaStr],
+    ['INDICADOR', 'VALOR', 'NOTAS'],
+    ['Total títulos (físicos + eBooks)', totTit,              'Informe 46'],
+    ['Títulos físicos',                  totFis > 0 ? totFis : 'Sin datos', 'Informe 46 − eBooks · base del ratio'],
+    ['eBooks (excluidos del ratio)',     totEb  > 0 ? totEb  : 'Sin datos', 'No generan circulación física'],
+    ['Total alumnos',                    totAl  ?? 'Sin datos', 'Pregrado + postgrado · Informe 78'],
+    ['Ratio tít. físicos/alumno (prom)',avgRatio ?? 'Sin datos', 'Verde ≥ 10 | Amarillo 5-9.9 | Rojo < 5'],
+    ['Total préstamos período',          totPr  ?? 'Sin datos', 'Informe 72 · rango desde 2019'],
   ]);
-  ws1['!cols']=[{wch:40},{wch:18},{wch:38}];
-  XLSX.utils.book_append_sheet(wb,ws1,'KPIs Sistema');
+  ws1['!cols'] = [{wch:40}, {wch:18}, {wch:48}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'KPIs Sistema');
 
-  /* Hoja 2: Por Biblioteca */
-  const filterBib=document.getElementById('filterBib')?.value||'';
-  const sortBy=document.getElementById('filterSort')?.value||'name';
-  let filtRows=filterBib?rows.filter(r=>r.bib===filterBib):rows;
-  filtRows.sort((a,b)=>{
-    if(sortBy==='titulos') return (b.totTit||0)-(a.totTit||0);
-    if(sortBy==='alumnos') return (b.alTot||0)-(a.alTot||0);
-    if(sortBy==='ratio')   return (b.ratio||0)-(a.ratio||0);
-    if(sortBy==='prestamos')return(b.prestamos||0)-(a.prestamos||0);
-    return a.name.localeCompare(b.name,'es');
+  /* ── Hoja 2: Por biblioteca ── */
+  const filterBib = document.getElementById('filterBib')?.value || '';
+  const sortBy    = document.getElementById('filterSort')?.value || 'name';
+
+  let filtRows = filterBib ? rows.filter(r => r.bib === filterBib) : rows;
+
+  // Ordenamiento (usando propiedades correctas de computeRows)
+  filtRows = [...filtRows].sort((a, b) => {
+    if (sortBy === 'titulos')   return (b.titulos    || 0) - (a.titulos    || 0);
+    if (sortBy === 'alumnos')   return (b.alTot      || 0) - (a.alTot      || 0);
+    if (sortBy === 'ratio')     return (b.ratioAcred || 0) - (a.ratioAcred || 0);
+    if (sortBy === 'prestamos') return (b.prestamos  || 0) - (a.prestamos  || 0);
+    return a.name.localeCompare(b.name, 'es');
   });
-  const bibData=[
-    ['Biblioteca','Títulos físicos','Ejm. físicos','Títulos ebooks','Total títulos','Al. pregrado','Al. postgrado','Total alumnos','Ratio T/A','Préstamos','Prést./alumno'],
-    ...filtRows.map(r=>[
-      r.name, raw(r.titFis), raw(r.ejmFis), r.titEb||0, r.totTit,
-      raw(r.alPre), raw(r.alPos), raw(r.alTot),
-      r.ratio!==null?+r.ratio.toFixed(1):null,
+
+  const totFilt = {
+    titulos:  filtRows.reduce((a, r) => a + (r.titulos    || 0), 0),
+    titFis:   filtRows.reduce((a, r) => a + (r.titFisicos || 0), 0),
+    ejmEb:    filtRows.reduce((a, r) => a + (r.ejmEbooks  || 0), 0),
+    alPre:    S.alumnos   ? filtRows.reduce((a, r) => a + (r.alPre    || 0), 0) : null,
+    alPos:    S.alumnos   ? filtRows.reduce((a, r) => a + (r.alPos    || 0), 0) : null,
+    alTot:    S.alumnos   ? filtRows.reduce((a, r) => a + (r.alTot    || 0), 0) : null,
+    pr:       S.prestamos ? filtRows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null,
+  };
+  const avgRatioFilt = totFilt.titFis && totFilt.alTot
+    ? +(totFilt.titFis / totFilt.alTot).toFixed(1) : null;
+
+  const bibData = [
+    ['Biblioteca', 'Total títulos', 'Tít. físicos', 'eBooks (excl. ratio)', 'Al. pregrado', 'Al. postgrado', 'Total alumnos', 'Ratio Fís./A', 'Préstamos', 'Prést./alumno'],
+    ...filtRows.map(r => [
+      r.name,
+      raw(r.titulos),
+      raw(r.titFisicos),
+      raw(r.ejmEbooks),
+      raw(r.alPre),
+      raw(r.alPos),
+      raw(r.alTot),
+      r.ratioAcred !== null ? +r.ratioAcred.toFixed(1) : null,
       raw(r.prestamos),
-      r.prAlumno!==null?+r.prAlumno.toFixed(1):null
+      r.prAlumno   !== null ? +r.prAlumno.toFixed(1)   : null,
     ]),
     [],
-    ['TOTALES / PROMEDIO',
-      S.fisicos?filtRows.reduce((a,r)=>a+(r.titFis||0),0):null,
-      S.fisicos?filtRows.reduce((a,r)=>a+(r.ejmFis||0),0):null,
-      S.ebooks?filtRows.reduce((a,r)=>a+(r.titEb||0),0):null,
-      filtRows.reduce((a,r)=>a+(r.totTit||0),0),
-      S.alumnos?filtRows.reduce((a,r)=>a+(r.alPre||0),0):null,
-      S.alumnos?filtRows.reduce((a,r)=>a+(r.alPos||0),0):null,
-      S.alumnos?filtRows.reduce((a,r)=>a+(r.alTot||0),0):null,
-      avgRatio,
-      S.prestamos?filtRows.reduce((a,r)=>a+(r.prestamos||0),0):null,
+    ['TOTALES',
+      totFilt.titulos,
+      totFilt.titFis,
+      totFilt.ejmEb,
+      totFilt.alPre,
+      totFilt.alPos,
+      totFilt.alTot,
+      avgRatioFilt,
+      totFilt.pr,
       null
     ]
   ];
-  const ws2=XLSX.utils.aoa_to_sheet(bibData);
-  ws2['!cols']=[{wch:22},{wch:15},{wch:13},{wch:15},{wch:14},{wch:13},{wch:14},{wch:14},{wch:10},{wch:13},{wch:13}];
-  XLSX.utils.book_append_sheet(wb,ws2,'Por Biblioteca');
+  const ws2 = XLSX.utils.aoa_to_sheet(bibData);
+  ws2['!cols'] = [{wch:30},{wch:14},{wch:14},{wch:10},{wch:13},{wch:14},{wch:14},{wch:10},{wch:13},{wch:13}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Por Biblioteca');
 
-  /* Hoja 3: Por UA (si hay datos) */
-  if(S.ua.length){
-    const uaData=[
-      ['Biblioteca','UA','Títulos','Ejemplares','Alumnos UA (ingresados)','Ratio T/A','Nota'],
-      ...S.ua.slice().sort((a,b)=>a.bib.localeCompare(b.bib)||a.ua.localeCompare(b.ua)).map(x=>{
-        const uaAl=S.uaAlumnos[x.ua]||null;
-        const ratio=x.titulos&&uaAl?+(x.titulos/uaAl).toFixed(1):null;
-        return[NAMES[x.bib]||x.bib, x.ua, x.titulos, x.ejemplares,
-          uaAl, ratio,
-          uaAl?'':'Ingresa alumnos UA para calcular ratio'];
+  /* ── Hoja 3: Por UA (si hay datos del Informe 106) ── */
+  if (S.ua.length) {
+    const uaData = [
+      ['Biblioteca','UA','Total títulos','Tít. físicos','eBooks','Alumnos UA (ingresados)','Ratio Fís./A','Nota'],
+      ...S.ua.slice().sort((a, b) => a.ua.localeCompare(b.ua)).map(x => {
+        const uaAl   = S.uaAlumnos[x.ua] || null;
+        const titFis = Math.max(0, x.titulos - x.ejmEbooks);
+        const ratio  = titFis && uaAl ? +(titFis / uaAl).toFixed(1) : null;
+        return [
+          NAMES[x.bib] || x.bib || '—',
+          x.ua,
+          x.titulos,
+          titFis,
+          x.ejmEbooks,
+          uaAl,
+          ratio,
+          uaAl ? '' : 'Ingresa alumnos UA para calcular ratio'
+        ];
       })
     ];
-    const ws3=XLSX.utils.aoa_to_sheet(uaData);
-    ws3['!cols']=[{wch:22},{wch:12},{wch:10},{wch:12},{wch:22},{wch:10},{wch:32}];
-    XLSX.utils.book_append_sheet(wb,ws3,'Por UA');
+    const ws3 = XLSX.utils.aoa_to_sheet(uaData);
+    ws3['!cols'] = [{wch:22},{wch:35},{wch:10},{wch:12},{wch:10},{wch:22},{wch:10},{wch:32}];
+    XLSX.utils.book_append_sheet(wb, ws3, 'Por UA (Inf. 106)');
   }
 
-  const dateTag=d.toLocaleDateString('es-CL').replace(/\//g,'-');
-  XLSX.writeFile(wb,`Panel_Indicadores_KOHA_${dateTag}.xlsx`);
+  const dateTag = d.toLocaleDateString('es-CL').replace(/\//g, '-');
+  XLSX.writeFile(wb, `Panel_Indicadores_KOHA_${dateTag}.xlsx`);
 }
 
-/* ── MODAL EDITAR NOMBRES ── */
-function openNameEditor(){
+// ─────────────────────────────────────────────
+//  MODAL: EDITAR NOMBRES
+// ─────────────────────────────────────────────
+function openNameEditor() {
   document.getElementById('nameModal').classList.add('open');
   renderNameTable();
 }
-function closeNameEditor(){document.getElementById('nameModal').classList.remove('open');}
-function renderNameTable(){
-  document.getElementById('nameTable').innerHTML=Object.keys(ORIGINAL_NAMES).map(code=>`
+function closeNameEditor() {
+  document.getElementById('nameModal').classList.remove('open');
+}
+function renderNameTable() {
+  document.getElementById('nameTable').innerHTML = Object.keys(ORIGINAL_NAMES).map(code => `
     <tr>
       <td class="code">${code}</td>
-      <td><input class="name-input" type="text" data-code="${code}" value="${NAMES[code]||code}" placeholder="${code}"></td>
+      <td><input class="name-input" type="text" data-code="${code}"
+          value="${NAMES[code] || code}" placeholder="${code}"></td>
     </tr>`).join('');
 }
-function saveNames(){
-  document.querySelectorAll('#nameTable .name-input').forEach(inp=>{
-    const code=inp.dataset.code;
-    NAMES[code]=(inp.value.trim()||code);
+function saveNames() {
+  document.querySelectorAll('#nameTable .name-input').forEach(inp => {
+    const code = inp.dataset.code;
+    NAMES[code] = inp.value.trim() || code;
   });
   closeNameEditor();
   render();
 }
-function resetNames(){
-  NAMES={...ORIGINAL_NAMES};
+function resetNames() {
+  NAMES = {...ORIGINAL_NAMES};
   renderNameTable();
 }
-document.getElementById('nameModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeNameEditor();});
+document.getElementById('nameModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeNameEditor();
+});
 
-/* ── RENDER ── */
-function renderChips(){
-  document.getElementById('chipsList').innerHTML=FILE_DEFS.map(fd=>{
-    const loaded=S[fd.id]!==null;
-    const count=loaded?Object.keys(S[fd.id]).length:0;
-    return`<div class="sb-file ${loaded?'loaded':''}">
-      <input type="file" multiple accept=".csv" onchange="handleFiles([...this.files]);this.value=''">
+// ─────────────────────────────────────────────
+//  RENDER: CHIPS DE ESTADO EN SIDEBAR
+// ─────────────────────────────────────────────
+function renderChips() {
+  document.getElementById('chipsList').innerHTML = FILE_DEFS.map(fd => {
+    const data   = S[fd.id];
+    // S.ua es array → cargado si tiene al menos 1 elemento
+    const loaded = fd.isArray ? (Array.isArray(data) && data.length > 0) : (data !== null && data !== undefined);
+    const count  = loaded
+      ? (fd.isArray ? data.length : Object.keys(data).length)
+      : 0;
+    const hint   = loaded
+      ? (fd.isArray
+          ? `${count} UA${count !== 1 ? 's' : ''} cargada${count !== 1 ? 's' : ''} · arrastra para añadir`
+          : `${count} registros · OK`)
+      : fd.hint;
+    return `<div class="sb-file ${loaded ? 'loaded' : ''}">
+      <input type="file" multiple accept=".csv"
+        onchange="handleFiles([...this.files]); this.value=''">
       <div class="sb-file-dot"></div>
       <div class="sb-file-info">
         <div class="sb-file-name">${fd.label}</div>
-        <div class="sb-file-hint">${loaded?count+' bibliotecas · OK':fd.hint}</div>
+        <div class="sb-file-hint">${hint}</div>
       </div>
     </div>`;
   }).join('');
 }
 
-function renderKPIs(rows){
-  const any=S.fisicos||S.ebooks||S.alumnos||S.prestamos;
-  if(!any){
-    document.getElementById('kpiGrid').innerHTML=`<div style="grid-column:1/-1"><div class="empty-state">
-      <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div>
-      <h3>Sin datos cargados</h3><p>Arrastra los CSV de KOHA al panel izquierdo</p></div></div>`;
-    document.getElementById('tableSection').style.display='none';
-    document.getElementById('btnExport').classList.add('disabled'); return;
+// ─────────────────────────────────────────────
+//  RENDER: KPIs SUPERIORES
+// ─────────────────────────────────────────────
+function renderKPIs(rows) {
+  const anyData = S.completo || S.alumnos || S.prestamos;
+  const emptyHTML = `<div style="grid-column:1/-1">
+    <div class="empty-state">
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round"
+             stroke-linejoin="round" fill="none">
+          <path d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <h3>Sin datos cargados</h3>
+      <p>Arrastra los CSV de KOHA al panel izquierdo</p>
+    </div>
+  </div>`;
+
+  if (!anyData) {
+    document.getElementById('kpiGrid').innerHTML = emptyHTML;
+    document.getElementById('tableSection').style.display = 'none';
+    document.getElementById('btnExport').classList.add('disabled');
+    return;
   }
-  const totTit=rows.reduce((a,r)=>a+(r.totTit||0),0);
-  const totEjm=rows.reduce((a,r)=>a+(r.totEjm||0),0);
-  const totAl=S.alumnos?rows.reduce((a,r)=>a+(r.alTot||0),0):null;
-  const totPr=S.prestamos?rows.reduce((a,r)=>a+(r.prestamos||0),0):null;
-  const avgRatio=totTit&&totAl?totTit/totAl:null;
-  const cards=[
-    {lbl:'Total títulos',     val:totTit.toLocaleString('es-CL'), aux:'Físicos + ebooks'},
-    {lbl:'Total ejemplares',  val:totEjm.toLocaleString('es-CL'), aux:S.ebooks?'Incl. ebooks':'Solo físicos'},
-    {lbl:'Total alumnos',     val:totAl!==null?totAl.toLocaleString('es-CL'):'—', aux:'Pregrado + postgrado'},
-    {lbl:'Ratio títulos/alumno', val:avgRatio!==null?avgRatio.toFixed(1):'—', aux:'Promedio sistema', accent:true},
-    ...(totPr!==null?[{lbl:'Préstamos período', val:totPr.toLocaleString('es-CL'), aux:'Ene 2025 – hoy'}]:[]),
+
+  const totTit     = rows.reduce((a, r) => a + (r.titulos    || 0), 0);
+  const totFis     = rows.reduce((a, r) => a + (r.titFisicos || 0), 0);
+  const totEjm     = rows.reduce((a, r) => a + (r.ejemplares || 0), 0);
+  const totEb      = rows.reduce((a, r) => a + (r.ejmEbooks  || 0), 0);
+  const totAl      = S.alumnos   ? rows.reduce((a, r) => a + (r.alTot    || 0), 0) : null;
+  const totPr      = S.prestamos ? rows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null;
+  // Ratio usa solo títulos físicos (sin eBooks)
+  const avgRatio   = totFis && totAl ? totFis / totAl : null;
+
+  const cards = [
+    {lbl:'Títulos físicos',        val: totFis > 0 ? totFis.toLocaleString('es-CL') : '—',  aux:'Sin eBooks · base del ratio'},
+    {lbl:'eBooks',                 val: totEb  > 0 ? totEb.toLocaleString('es-CL')  : '—',  aux:'Excluidos del ratio'},
+    {lbl:'Total títulos',          val: totTit > 0 ? totTit.toLocaleString('es-CL') : '—',  aux:'Físicos + eBooks · Inf. 46'},
+    {lbl:'Total alumnos',          val: totAl !== null ? totAl.toLocaleString('es-CL') : '—', aux:'Pregrado + postgrado · Inf. 78'},
+    {lbl:'Ratio tít. físicos / alumno', val: avgRatio !== null ? avgRatio.toFixed(1) : '—', aux:'Solo libros físicos · ≥10 verde', accent:true},
+    ...(totPr !== null ? [{lbl:'Préstamos período', val: totPr.toLocaleString('es-CL'), aux:'Inf. 72 · desde 2019'}] : []),
   ];
-  document.getElementById('kpiGrid').innerHTML=cards.map(c=>`
-    <div class="kpi-card ${c.accent?'accent':''}">
+
+  document.getElementById('kpiGrid').innerHTML = cards.map(c => `
+    <div class="kpi-card ${c.accent ? 'accent' : ''}">
       <div class="kpi-card-lbl">${c.lbl}</div>
       <div class="kpi-card-val">${c.val}</div>
       <div class="kpi-card-aux">${c.aux}</div>
     </div>`).join('');
-  document.getElementById('tableSection').style.display='';
+
+  document.getElementById('tableSection').style.display = '';
   document.getElementById('btnExport').classList.remove('disabled');
 }
 
-function renderMain(){
-  const filterBib=document.getElementById('filterBib')?.value||'';
-  const sortBy=document.getElementById('filterSort')?.value||'name';
-  let rows=computeRows();
-  if(filterBib) rows=rows.filter(r=>r.bib===filterBib);
-  rows.sort((a,b)=>{
-    if(sortBy==='titulos')  return(b.totTit||0)-(a.totTit||0);
-    if(sortBy==='alumnos')  return(b.alTot||0)-(a.alTot||0);
-    if(sortBy==='ratio')    return(b.ratio||0)-(a.ratio||0);
-    if(sortBy==='prestamos')return(b.prestamos||0)-(a.prestamos||0);
-    return a.name.localeCompare(b.name,'es');
-  });
-  const tot={
-    titFis:S.fisicos?rows.reduce((a,r)=>a+(r.titFis||0),0):null,
-    ejmFis:S.fisicos?rows.reduce((a,r)=>a+(r.ejmFis||0),0):null,
-    titEb: S.ebooks ?rows.reduce((a,r)=>a+(r.titEb||0),0):null,
-    totTit:rows.reduce((a,r)=>a+(r.totTit||0),0),
-    totEjm:rows.reduce((a,r)=>a+(r.totEjm||0),0),
-    alPre: S.alumnos?rows.reduce((a,r)=>a+(r.alPre||0),0):null,
-    alPos: S.alumnos?rows.reduce((a,r)=>a+(r.alPos||0),0):null,
-    alTot: S.alumnos?rows.reduce((a,r)=>a+(r.alTot||0),0):null,
-    pr:    S.prestamos?rows.reduce((a,r)=>a+(r.prestamos||0),0):null,
-  };
-  const avgR=tot.totTit&&tot.alTot?tot.totTit/tot.alTot:null;
-  const avgPA=tot.pr&&tot.alTot?tot.pr/tot.alTot:null;
+// ─────────────────────────────────────────────
+//  RENDER: TABLA PRINCIPAL POR BIBLIOTECA
+// ─────────────────────────────────────────────
+function renderMain() {
+  const filterBib = document.getElementById('filterBib')?.value || '';
+  const sortBy    = document.getElementById('filterSort')?.value || 'name';
 
-  document.getElementById('mainBody').innerHTML=rows.map(r=>`<tr>
-    <td>${r.name}</td>
-    <td>${n0(r.titFis)}</td><td>${n0(r.ejmFis)}</td>
-    <td>${r.titEb>0?r.titEb.toLocaleString('es-CL'):'<span class="miss">0</span>'}</td>
-    <td><strong>${r.totTit.toLocaleString('es-CL')}</strong></td>
-    <td>${n0(r.alPre)}</td><td>${n0(r.alPos)}</td><td>${n0(r.alTot)}</td>
-    <td>${badge(r.ratio,10,5)}</td>
+  let rows = computeRows();
+  if (filterBib) rows = rows.filter(r => r.bib === filterBib);
+
+  // Ordenamiento usando propiedades correctas de computeRows
+  rows = [...rows].sort((a, b) => {
+    if (sortBy === 'titulos')   return (b.titulos    || 0) - (a.titulos    || 0);
+    if (sortBy === 'alumnos')   return (b.alTot      || 0) - (a.alTot      || 0);
+    if (sortBy === 'ratio')     return (b.ratioAcred || 0) - (a.ratioAcred || 0);
+    if (sortBy === 'prestamos') return (b.prestamos  || 0) - (a.prestamos  || 0);
+    return a.name.localeCompare(b.name, 'es');
+  });
+
+  // Filas del cuerpo
+  document.getElementById('mainBody').innerHTML = rows.map(r => `<tr>
+    <td>${r.name}${r.fuente === 'completo' ? '' : ' <span class="miss" style="font-size:10px">(sin datos)</span>'}</td>
+    <td>${r.titulos !== null ? r.titulos.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+    <td><strong>${r.titFisicos !== null ? r.titFisicos.toLocaleString('es-CL') : '<span class="miss">—</span>'}</strong></td>
+    <td>${r.ejmEbooks !== null ? r.ejmEbooks.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+    <td>${n0(r.alPre)}</td>
+    <td>${n0(r.alPos)}</td>
+    <td>${n0(r.alTot)}</td>
+    <td>${badge(r.ratioAcred, 10, 5)}</td>
     <td>${n0(r.prestamos)}</td>
-    <td>${badge(r.prAlumno,5,2)}</td>
+    <td>${badge(r.prAlumno, 5, 2)}</td>
   </tr>`).join('');
 
-  document.getElementById('mainFoot').innerHTML=`<tr>
+  // Totales en el pie de tabla
+  const tot = {
+    titulos:  rows.reduce((a, r) => a + (r.titulos    || 0), 0),
+    titFis:   rows.reduce((a, r) => a + (r.titFisicos || 0), 0),
+    ejmEb:    rows.reduce((a, r) => a + (r.ejmEbooks  || 0), 0),
+    alPre:    S.alumnos   ? rows.reduce((a, r) => a + (r.alPre    || 0), 0) : null,
+    alPos:    S.alumnos   ? rows.reduce((a, r) => a + (r.alPos    || 0), 0) : null,
+    alTot:    S.alumnos   ? rows.reduce((a, r) => a + (r.alTot    || 0), 0) : null,
+    pr:       S.prestamos ? rows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null,
+  };
+  // Ratio promedio: títulos físicos / alumnos
+  const avgR  = tot.titFis && tot.alTot ? tot.titFis / tot.alTot : null;
+  const avgPA = tot.pr && tot.alTot ? tot.pr / tot.alTot : null;
+
+  document.getElementById('mainFoot').innerHTML = `<tr>
     <td>Total / promedio</td>
-    <td>${n0(tot.titFis)}</td><td>${n0(tot.ejmFis)}</td>
-    <td>${tot.titEb!==null?tot.titEb.toLocaleString('es-CL'):'<span class="miss">—</span>'}</td>
-    <td><strong>${tot.totTit.toLocaleString('es-CL')}</strong></td>
-    <td>${n0(tot.alPre)}</td><td>${n0(tot.alPos)}</td><td>${n0(tot.alTot)}</td>
-    <td>${badge(avgR,10,5)}</td>
-    <td>${tot.pr!==null?tot.pr.toLocaleString('es-CL'):'<span class="miss">—</span>'}</td>
-    <td>${badge(avgPA,5,2)}</td>
+    <td>${tot.titulos.toLocaleString('es-CL')}</td>
+    <td><strong>${tot.titFis > 0 ? tot.titFis.toLocaleString('es-CL') : '<span class="miss">—</span>'}</strong></td>
+    <td>${tot.ejmEb  > 0 ? tot.ejmEb.toLocaleString('es-CL')  : '<span class="miss">—</span>'}</td>
+    <td>${n0(tot.alPre)}</td>
+    <td>${n0(tot.alPos)}</td>
+    <td>${n0(tot.alTot)}</td>
+    <td>${badge(avgR, 10, 5)}</td>
+    <td>${tot.pr !== null ? tot.pr.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+    <td>${badge(avgPA, 5, 2)}</td>
   </tr>`;
 
-  const sel=document.getElementById('filterBib');
-  if(sel&&sel.options.length===1) MAIN.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=NAMES[b]||b;sel.appendChild(o);});
-  else if(sel) Array.from(sel.options).forEach((o,i)=>{if(i>0)o.textContent=NAMES[o.value]||o.value;});
+  // Poblar selector de bibliotecas (solo la primera vez)
+  const sel = document.getElementById('filterBib');
+  if (sel && sel.options.length === 1) {
+    MAIN.forEach(b => {
+      const o = document.createElement('option');
+      o.value = b;
+      o.textContent = NAMES[b] || b;
+      sel.appendChild(o);
+    });
+  } else if (sel) {
+    Array.from(sel.options).forEach((o, i) => {
+      if (i > 0) o.textContent = NAMES[o.value] || o.value;
+    });
+  }
 }
 
-function renderUA(){
-  const el=document.getElementById('uaSection');
-  if(!S.ua.length){
-    el.innerHTML=`<div class="ua-empty">
-      <p>Sube los exports del informe <strong>"Títulos y ejemplares por UA"</strong><br>
-      (uno por unidad académica — se consolidan automáticamente).</p>
+// ─────────────────────────────────────────────
+//  RENDER: SECCIÓN UA (Informe 106)
+// ─────────────────────────────────────────────
+function renderUA() {
+  const el = document.getElementById('uaSection');
+
+  if (!S.ua.length) {
+    el.innerHTML = `<div class="ua-empty">
+      <p>Sube los exports del <strong>Informe 106 — Títulos y Ejemplares por UA</strong><br>
+         (uno por unidad académica — se consolidan automáticamente).</p>
       <label class="btn-add-ua" style="display:inline-flex;margin:0 auto">
-        <input type="file" multiple accept=".csv" onchange="handleFiles([...this.files],true);this.value=''">
-        + Subir archivos de UA
+        <input type="file" multiple accept=".csv"
+          onchange="handleFiles([...this.files], true); this.value=''">
+        + Subir archivos de UA (Inf. 106)
       </label>
-    </div>`; return;
+    </div>`;
+    return;
   }
-  const uaList=[...new Set(S.ua.map(x=>x.ua))].sort();
-  const uaRows=S.ua.slice().sort((a,b)=>a.bib.localeCompare(b.bib)||a.ua.localeCompare(b.ua));
-  el.innerHTML=`
+
+  const uaList = [...new Set(S.ua.map(x => x.ua))].sort();
+  const uaRows = S.ua.slice().sort((a, b) =>
+    (a.bib || '').localeCompare(b.bib || '') || a.ua.localeCompare(b.ua)
+  );
+
+  el.innerHTML = `
     <div class="ua-add-bar">
-      ${uaList.map(ua=>`<span class="ua-tag">${ua}<button onclick="removeUA('${ua}')" title="Quitar">×</button></span>`).join('')}
-      <label class="btn-add-ua"><input type="file" multiple accept=".csv" onchange="handleFiles([...this.files],true);this.value=''">+ Agregar UA</label>
+      ${uaList.map(ua => `
+        <span class="ua-tag">${ua}
+          <button onclick="removeUA('${ua}')" title="Quitar">×</button>
+        </span>`).join('')}
+      <label class="btn-add-ua">
+        <input type="file" multiple accept=".csv"
+          onchange="handleFiles([...this.files], true); this.value=''">
+        + Agregar UA
+      </label>
     </div>
     <span class="ua-al-hint">* Ingresa los alumnos matriculados en cada UA para obtener el ratio correcto a nivel de carrera.</span>
     <div style="display:flex;align-items:flex-start;gap:10px;background:#EBF3FB;border:1px solid #B5D4F4;border-radius:var(--r);padding:.625rem .875rem;margin:.5rem 0 .75rem">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"
+           style="width:16px;height:16px;flex-shrink:0;margin-top:1px">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
       <span style="font-size:12px;color:#0C447C;line-height:1.5">
-        <strong>¿Por qué el ratio difiere del panel superior?</strong> El panel por biblioteca contabiliza <em>todos los títulos físicos de la biblioteca</em>, incluyendo colecciones compartidas entre carreras. Este panel usa solo los títulos del informe "Títulos por UA", que filtra exclusivamente el material asignado a esa carrera — por eso el ratio puede ser menor y es el <strong>dato correcto para usar en informes de acreditación por carrera</strong>.
+        <strong>¿Por qué el ratio difiere del panel superior?</strong>
+        El panel por biblioteca contabiliza <em>todos los títulos físicos de la biblioteca</em> (Informe 46, excluidos eBooks),
+        incluyendo colecciones compartidas entre carreras. Este panel usa solo los títulos físicos del
+        Informe 106 asignados exclusivamente a esa carrera — por eso puede ser menor y es el
+        <strong>dato correcto para informes de acreditación por carrera</strong>.
+        En ambos casos el ratio excluye eBooks porque no generan circulación física.
       </span>
     </div>
-    <div class="tbl-wrap" style="margin-top:.6rem"><table>
-      <thead><tr>
-        <th style="text-align:left">Biblioteca</th>
-        <th style="text-align:left">UA</th>
-        <th>Títulos</th>
-        <th>Ejemplares</th>
-        <th>Alumnos UA *</th>
-        <th>Ratio T/A</th>
-        <th style="width:36px"></th>
-      </tr></thead>
-      <tbody>${uaRows.map(x=>{
-        const uaAl=S.uaAlumnos[x.ua]||null;
-        const ratio=(x.titulos&&uaAl)?x.titulos/uaAl:null;
-        return`<tr data-ua="${x.ua}">
-          <td>${NAMES[x.bib]||x.bib}</td>
-          <td style="text-align:left;font-family:var(--mono);font-size:11px">${x.ua}</td>
-          <td>${x.titulos.toLocaleString('es-CL')}</td>
-          <td>${x.ejemplares.toLocaleString('es-CL')}</td>
-          <td><input class="ua-al-input" type="number" min="1" placeholder="Nº alumnos"
-            value="${uaAl||''}"
-            oninput="setUAAlumnos('${x.ua}',this.value)"
-            title="Ingresa el número de alumnos matriculados en esta UA"></td>
-          <td class="ua-ratio-cell">${badge(ratio,10,5)}</td>
-          <td style="text-align:center"><button onclick="removeUA('${x.ua}')" title="Quitar UA"
-            style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 4px">×</button></td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table></div>`;
+    <div class="tbl-wrap" style="margin-top:.6rem">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">Biblioteca</th>
+            <th style="text-align:left">UA</th>
+            <th>Total títulos</th>
+            <th>Tít. físicos</th>
+            <th>Ejemplares</th>
+            <th>eBooks</th>
+            <th>Alumnos UA *</th>
+            <th title="Títulos físicos ÷ Alumnos (eBooks excluidos)">Ratio Fís./A</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${uaRows.map(x => {
+            const uaAl = S.uaAlumnos[x.ua] || null;
+            // Ratio usa solo títulos físicos (sin eBooks)
+            const titFis = Math.max(0, x.titulos - x.ejmEbooks);
+            const ratio = (titFis && uaAl) ? titFis / uaAl : null;
+            const bibNombre = NAMES[x.bib] || x.bib || '<span class="miss">—</span>';
+            return `<tr data-ua="${x.ua}">
+              <td>${bibNombre}</td>
+              <td style="text-align:left;font-family:var(--mono);font-size:11px">${x.ua}</td>
+              <td>${x.titulos.toLocaleString('es-CL')}</td>
+              <td><strong>${titFis.toLocaleString('es-CL')}</strong></td>
+              <td>${x.ejemplares.toLocaleString('es-CL')}</td>
+              <td>${x.ejmEbooks.toLocaleString('es-CL')}</td>
+              <td>
+                <input class="ua-al-input" type="number" min="1" placeholder="Nº alumnos"
+                  value="${uaAl || ''}"
+                  oninput="setUAAlumnos('${x.ua}', this.value)"
+                  title="Ingresa el número de alumnos matriculados en esta UA">
+              </td>
+              <td class="ua-ratio-cell">${badge(ratio, 10, 5)}</td>
+              <td style="text-align:center">
+                <button onclick="removeUA('${x.ua}')" title="Quitar UA"
+                  style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 4px">×</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
-function removeUA(ua){S.ua=S.ua.filter(x=>x.ua!==ua);delete S.uaAlumnos[ua];render();}
+// setCNAAlumnos — actualiza el pie de tabla CNA alternativo cuando cambia un valor manual
+// (La fórmula Ind.[37] ya no usa alumnos sino ejemplares; esta función actualiza el pie)
+function setCNAAlumnos(bib, val) {
+  // ya no hay inputs de alumnos en la tabla CNA alternativo — función reservada
+}
 
-function setUAAlumnos(ua, val){
-  const n=parseInt(val);
-  if(!isNaN(n)&&n>0) S.uaAlumnos[ua]=n;
+function removeUA(ua) {
+  S.ua = S.ua.filter(x => x.ua !== ua);
+  delete S.uaAlumnos[ua];
+  render();
+}
+
+function setUAAlumnos(ua, val) {
+  const n = parseInt(val);
+  if (!isNaN(n) && n > 0) S.uaAlumnos[ua] = n;
   else delete S.uaAlumnos[ua];
-  const row=document.querySelector(`tr[data-ua="${ua}"]`);
-  if(!row) return;
-  const tit=S.ua.find(x=>x.ua===ua)?.titulos||0;
-  const ratio=(tit&&S.uaAlumnos[ua])?tit/S.uaAlumnos[ua]:null;
-  row.querySelector('.ua-ratio-cell').innerHTML=badge(ratio,10,5);
+
+  const x      = S.ua.find(x => x.ua === ua);
+  const titFis = x ? Math.max(0, x.titulos - x.ejmEbooks) : 0;
+  const ratio  = (titFis && S.uaAlumnos[ua]) ? titFis / S.uaAlumnos[ua] : null;
+
+  // ── Sección UA (panel general) ──
+  const uaRow = document.querySelector(`#uaSection tr[data-ua="${ua}"]`);
+  if (uaRow) {
+    uaRow.querySelector('.ua-ratio-cell').innerHTML = badge(ratio, 10, 5);
+    // Sincronizar input si el foco no está ahí
+    const inp = uaRow.querySelector('input[type="number"]');
+    if (inp && inp !== document.activeElement) inp.value = S.uaAlumnos[ua] || '';
+  }
+
+  // ── Sección CNA (método CNA) ──
+  const cnaRow = document.querySelector(`#cnaSection tr[data-ua="${ua}"]`);
+  if (cnaRow) {
+    // Ratio colección
+    const ratioCell = cnaRow.querySelector('.cna-ua-ratio-cell');
+    if (ratioCell) ratioCell.innerHTML = badge(ratio, 10, 5);
+    // Indicador [37] CNA: (Préstamos UA × 100) ÷ Ejemplares UA
+    const prUA      = S.prestamosUA?.[ua];
+    const ind37cna  = prUA && x?.ejemplares ? (prUA.total * 100) / x.ejemplares : null;
+    const ind37Cell = cnaRow.querySelector('.cna-ua-ind37-cell');
+    if (ind37Cell) ind37Cell.innerHTML = badge(ind37cna, 20, 5);
+    // Sincronizar input si el foco no está ahí
+    const inp = cnaRow.querySelector('input[type="number"]');
+    if (inp && inp !== document.activeElement) inp.value = S.uaAlumnos[ua] || '';
+  }
 }
 
-function render(){
+// ─────────────────────────────────────────────
+//  RENDER: FICHA ACREDITACIÓN CNA
+//  Muestra los indicadores requeridos por CNA:
+//  [Fila 1] Volúmenes  [Fila 2] Títulos  [Fila 6] Indicador [37]
+// ─────────────────────────────────────────────
+function renderCNA() {
+  const wrap = document.getElementById('cnaSectionWrap');
+  const el   = document.getElementById('cnaSection');
+  const rows = computeRows().filter(r => r.fuente === 'completo');
+
+  if (!rows.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+
+  const hayPrestamosUA = S.prestamosUA && Object.keys(S.prestamosUA).length > 0;
+
+  // ── Totales sistema ──
+  const totVol  = rows.reduce((a, r) => a + (r.ejmLibros  || 0), 0);
+  const totTit  = rows.reduce((a, r) => a + (r.titFisicos || 0), 0);
+  const totAl   = S.alumnos   ? rows.reduce((a, r) => a + (r.alTot    || 0), 0) : null;
+  const totPr   = S.prestamos ? rows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null;
+  const ind37alt = totPr && totAl ? totPr / totAl : null;
+
+  // ── Tabla UA — método CNA ──
+  const filasUA = S.ua.length ? S.ua.slice()
+    .sort((a, b) => a.ua.localeCompare(b.ua))
+    .map(x => {
+      const uaAl    = S.uaAlumnos[x.ua] || null;
+      const titFis  = Math.max(0, x.titulos - x.ejmEbooks);
+      const volFis  = Math.max(0, x.ejemplares - x.ejmEbooks);
+      const ratioCol = titFis && uaAl ? titFis / uaAl : null;
+
+      // [37] Método CNA — (Préstamos UA × 100) ÷ Ejemplares UA
+      const prUA      = S.prestamosUA?.[x.ua];
+      const ind37cna  = prUA && x.ejemplares ? (prUA.total * 100) / x.ejemplares : null;
+      const prTxt     = prUA
+        ? `${prUA.total.toLocaleString('es-CL')}<span class="miss" style="font-size:10px;display:block">${prUA.pre} pre / ${prUA.pos} pos</span>`
+        : '<span class="miss">—</span>';
+
+      // [37] Método alternativo — (Préstamos biblioteca × 100) ÷ Ejemplares biblioteca
+      const bibRow    = rows.find(r => r.bib === x.bib);
+      const ind37bib  = bibRow?.prestamos && bibRow?.ejemplares
+        ? (bibRow.prestamos * 100) / bibRow.ejemplares : null;
+
+      return `<tr data-ua="${x.ua}">
+        <td style="text-align:left;font-family:var(--mono);font-size:11px">${x.ua}</td>
+        <td><strong>${titFis.toLocaleString('es-CL')}</strong></td>
+        <td>${volFis.toLocaleString('es-CL')}</td>
+        <td><input class="ua-al-input" type="number" min="1"
+          placeholder="Nº alumnos"
+          value="${uaAl || ''}"
+          oninput="setUAAlumnos('${x.ua}', this.value)"
+          title="Alumnos matriculados en este programa"></td>
+        <td class="cna-ua-ratio-cell">${badge(ratioCol, 10, 5)}</td>
+        <td style="line-height:1.2">${prTxt}</td>
+        <td class="cna-ua-ind37-cell">${badge(ind37cna, 20, 5)}</td>
+        <td>${badge(ind37bib, 20, 5)}${ind37bib !== null ? '<span class="miss" style="font-size:10px"> bib.</span>' : ''}</td>
+      </tr>`;
+    }).join('') : '';
+
+  el.innerHTML = `
+
+    <!-- ══ BLOQUE MÉTODO CNA ══ -->
+    <div class="method-block">
+      <div class="method-block-head">
+        <span class="cna-badge cna-badge-cna">Método CNA</span>
+        <div>
+          <h4>Colección y circulación específica del programa · Indicador [37] = Préstamos UA ÷ Alumnos UA</h4>
+          <p>Usa el Informe 106 (colección por UA) y el archivo de préstamos por UA (cada fila = 1 transacción)</p>
+        </div>
+      </div>
+      <div class="method-block-body">
+
+        ${!hayPrestamosUA ? `
+        <div class="cna-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#BA7517" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Para calcular el <strong>Indicador [37] método CNA</strong>, carga el archivo de <strong>préstamos por UA</strong> (columnas: Fecha · Notas · Título · UA · tansaccion). Mientras tanto, la columna <em>Ind.[37] Alt.</em> muestra el indicador a nivel de biblioteca.</span>
+        </div>` : `
+        <div class="cna-note" style="background:#E8F5E9;border-color:#A5D6A7">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span style="color:#1B5E20"><strong>Indicador [37] CNA calculado</strong> con ${Object.values(S.prestamosUA).reduce((a,v)=>a+v.total,0).toLocaleString('es-CL')} transacciones de préstamo para ${Object.keys(S.prestamosUA).length} UA(s). Puedes cargar archivos adicionales de otras UAs — se acumulan automáticamente.</span>
+        </div>`}
+
+        ${S.ua.length ? `
+        <div class="tbl-wrap">
+          <table style="min-width:780px">
+            <thead>
+              <tr>
+                <th style="text-align:left">Programa / UA</th>
+                <th title="Títulos físicos (Inf.106 − eBooks)">Tít. físicos [F2]</th>
+                <th title="Ejemplares físicos (Inf.106 − eBooks)">Volúmenes [F1]</th>
+                <th>Alumnos UA</th>
+                <th title="Títulos físicos ÷ Alumnos UA">Ratio Tít./Al.</th>
+                <th title="Préstamos del programa (pre/pos)">Préstamos UA</th>
+                <th title="(Préstamos UA × 100) ÷ Ejemplares UA — Indicador [37] Método CNA">Ind.[37] CNA = Prést.×100÷Ejm.</th>
+                <th title="(Préstamos biblioteca × 100) ÷ Ejemplares biblioteca — referencia">Ind.[37] Alt.⚠</th>
+              </tr>
+            </thead>
+            <tbody>${filasUA}</tbody>
+          </table>
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:.5rem">
+          ⚠ Ind.[37] Alt. = (préstamos totales biblioteca × 100) ÷ ejemplares biblioteca (no del programa específico).
+          Fórmula aplicada: <strong>(Préstamos × 100) ÷ Ejemplares</strong> · Semáforo: ≥ 20 verde · 5–19 amarillo · &lt; 5 rojo.
+          ${!hayPrestamosUA ? ' · Carga el archivo de préstamos por UA para obtener el Ind.[37] CNA.' : ''}
+        </p>
+        ` : `<p style="font-size:12px;color:var(--text2);padding:.5rem 0">Carga el <strong>Informe 106</strong> para ver los indicadores por programa.</p>`}
+      </div>
+    </div>
+
+    <!-- ══ BLOQUE MÉTODO ALTERNATIVO ══ -->
+    <div class="method-block">
+      <div class="method-block-head">
+        <span class="cna-badge cna-badge-alt">Método alternativo</span>
+        <div>
+          <h4>Totales de la biblioteca · Indicador [37] = (Préstamos × 100) ÷ Ejemplares biblioteca</h4>
+          <p>Produce valores más altos. Ampliamente usado en acreditación por convención institucional.</p>
+        </div>
+      </div>
+      <div class="method-block-body">
+        <div class="cna-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span><strong>Fórmula:</strong> (Préstamos totales biblioteca × 100) ÷ Total ejemplares biblioteca ·
+          <strong>Numerador:</strong> Inf. 72 (préstamos desde 2019) ·
+          <strong>Denominador:</strong> Ejemplares Inf. 46 ·
+          <strong>Filas 1 y 2:</strong> volúmenes y títulos físicos Inf. 46</span>
+        </div>
+        <div class="tbl-wrap">
+          <table style="min-width:580px">
+            <thead>
+              <tr>
+                <th style="text-align:left">Biblioteca</th>
+                <th>Volúmenes [Fila 1]</th>
+                <th>Títulos [Fila 2]</th>
+                <th>Ejemplares (total)</th>
+                <th>Préstamos (desde 2019)</th>
+                <th title="(Préstamos × 100) ÷ Ejemplares — Indicador [37]">Ind. [37] = Prést.×100÷Ejm.</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => {
+                const ind37 = r.prestamos && r.ejemplares ? (r.prestamos * 100) / r.ejemplares : null;
+                return `<tr data-bib="${r.bib}">
+                  <td>${r.name}</td>
+                  <td>${r.ejmLibros  !== null ? r.ejmLibros.toLocaleString('es-CL')  : '<span class="miss">—</span>'}</td>
+                  <td>${r.titFisicos !== null ? r.titFisicos.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+                  <td>${r.ejemplares !== null ? r.ejemplares.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+                  <td>${n0(r.prestamos)}</td>
+                  <td class="cna-ind37-cell">${badge(ind37, 20, 5)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tfoot><tr id="cnaAltTfoot">
+              <td>Total sistema</td>
+              <td>${totVol > 0 ? totVol.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+              <td>${totTit > 0 ? totTit.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+              <td>${(() => { const t = rows.reduce((a,r)=>a+(r.ejemplares||0),0); return t>0?t.toLocaleString('es-CL'):'<span class="miss">—</span>'; })()}</td>
+              <td>${totPr !== null ? totPr.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+              <td>${(() => { const t=rows.reduce((a,r)=>a+(r.ejemplares||0),0); const i=totPr&&t?(totPr*100)/t:null; return badge(i,20,5); })()}</td>
+            </tr></tfoot>
+          </table>
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:.5rem">
+          Fórmula: <strong>(Préstamos × 100) ÷ Ejemplares</strong> · Semáforo: ≥ 20 verde · 5–19 amarillo · &lt; 5 rojo.
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────────
+//  EXPORTAR: FICHA CNA
+// ─────────────────────────────────────────────
+function exportCNA() {
+  const wb   = XLSX.utils.book_new();
+  const rows = computeRows().filter(r => r.fuente === 'completo');
+  const d    = new Date();
+  const fecha = d.toLocaleDateString('es-CL', {day:'numeric', month:'long', year:'numeric'});
+
+  /* ── Portada ── */
+  const wsPort = XLSX.utils.aoa_to_sheet([
+    ['FICHA ACREDITACIÓN CNA — RECURSOS BIBLIOGRÁFICOS'],
+    ['Sistema de Bibliotecas · PUCV'],
+    ['Generado: ' + fecha],
+    [],
+    ['FÓRMULAS UTILIZADAS'],
+    ['Fila 1 — Volúmenes', 'Ejemplares físicos (Inf. 46 − eBooks)'],
+    ['Fila 2 — Títulos',   'Títulos físicos (Inf. 46 − eBooks)'],
+    ['Fila 6 — Ind. [37] Método CNA',        '(Préstamos UA × 100) ÷ Ejemplares UA (Inf. 106 + archivo préstamos UA)'],
+    ['Fila 6 — Ind. [37] Método alternativo','(Préstamos biblioteca × 100) ÷ Ejemplares biblioteca (Inf. 72 + Inf. 46)'],
+    [],
+    ['Semáforo Ind. [37]', '≥ 20 verde · 5–19 amarillo · < 5 rojo'],
+  ]);
+  wsPort['!cols'] = [{wch:40},{wch:80}];
+  XLSX.utils.book_append_sheet(wb, wsPort, 'Portada');
+
+  /* ── Hoja 1: Método alternativo por biblioteca ── */
+  const totVol = rows.reduce((a, r) => a + (r.ejmLibros  || 0), 0);
+  const totTit = rows.reduce((a, r) => a + (r.titFisicos || 0), 0);
+  const totAl  = S.alumnos   ? rows.reduce((a, r) => a + (r.alTot    || 0), 0) : null;
+  const totPr  = S.prestamos ? rows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null;
+  const ind37alt = totPr && totAl ? +(totPr / totAl).toFixed(2) : null;
+
+  const ws1 = XLSX.utils.aoa_to_sheet([
+    ['INDICADORES POR BIBLIOTECA — MÉTODO ALTERNATIVO'],
+    ['Indicador [37] = (Préstamos totales biblioteca × 100) ÷ Total ejemplares biblioteca'],
+    [],
+    ['Biblioteca', 'Volúmenes físicos [Fila 1]', 'Títulos físicos [Fila 2]', 'Ejemplares (total)', 'Préstamos (desde 2019)', 'Ind. [37] = Prést.×100÷Ejm.'],
+    ...rows.map(r => {
+      const ind37 = r.prestamos && r.ejemplares ? +((r.prestamos * 100) / r.ejemplares).toFixed(2) : null;
+      return [r.name, r.ejmLibros ?? null, r.titFisicos ?? null, r.ejemplares ?? null, r.prestamos ?? null, ind37];
+    }),
+    [],
+    (() => {
+      const totEjm = rows.reduce((a, r) => a + (r.ejemplares || 0), 0);
+      const ind37  = totPr && totEjm ? +((totPr * 100) / totEjm).toFixed(2) : null;
+      return ['TOTAL SISTEMA', totVol, totTit, totEjm || null, totPr, ind37];
+    })(),
+  ]);
+  ws1['!cols'] = [{wch:30},{wch:24},{wch:22},{wch:18},{wch:24},{wch:26}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Por Biblioteca (Método Alt.)');
+
+  /* ── Hoja 2: Método CNA por UA ── */
+  if (S.ua.length) {
+    const hayPrUA = S.prestamosUA && Object.keys(S.prestamosUA).length > 0;
+    const uaRows = S.ua.slice().sort((a, b) => a.ua.localeCompare(b.ua)).map(x => {
+      const uaAl   = S.uaAlumnos[x.ua] || null;
+      const titFis = Math.max(0, x.titulos - x.ejmEbooks);
+      const volFis = Math.max(0, x.ejemplares - x.ejmEbooks);
+      const ratioCol = titFis && uaAl ? +(titFis / uaAl).toFixed(2) : null;
+      const prUA   = S.prestamosUA?.[x.ua];
+      const ind37cna = prUA && x.ejemplares ? +((prUA.total * 100) / x.ejemplares).toFixed(2) : null;
+      const bibRow = rows.find(r => r.bib === x.bib);
+      const ind37alt = bibRow?.prestamos && bibRow?.ejemplares ? +((bibRow.prestamos * 100) / bibRow.ejemplares).toFixed(2) : null;
+      return [
+        x.ua,
+        NAMES[x.bib] || x.bib || '—',
+        x.titulos,
+        titFis,
+        volFis,
+        uaAl,
+        ratioCol,
+        prUA?.total ?? null,
+        prUA?.pre   ?? null,
+        prUA?.pos   ?? null,
+        ind37cna,
+        ind37alt,
+      ];
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet([
+      ['INDICADORES POR UA — MÉTODO CNA'],
+      [hayPrUA
+        ? 'Ind.[37] CNA calculado con datos reales de préstamos por UA'
+        : 'Ind.[37] CNA: carga el archivo de préstamos por UA para completar esta columna'],
+      [],
+      ['UA / Programa','Biblioteca','Títulos totales','Títulos físicos [F2]','Volúmenes físicos [F1]',
+       'Alumnos UA','Ratio Tít.Fís./Alumno','Préstamos UA','  Pregrado','  Postgrado',
+       'Ind.[37] CNA = (Prést.UA×100)÷Ejm.UA','Ind.[37] Alt. = (Prést.Bib×100)÷Ejm.Bib'],
+      ...uaRows,
+    ]);
+    ws2['!cols'] = [{wch:35},{wch:22},{wch:15},{wch:22},{wch:22},{wch:12},{wch:22},{wch:14},{wch:12},{wch:12},{wch:28},{wch:28}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Por UA (Método CNA)');
+  }
+
+  const dateTag = d.toLocaleDateString('es-CL').replace(/\//g, '-');
+  XLSX.writeFile(wb, `Ficha_CNA_PUCV_${dateTag}.xlsx`);
+}
+
+// ─────────────────────────────────────────────
+//  RENDER PRINCIPAL
+// ─────────────────────────────────────────────
+function render() {
   renderChips();
-  const rows=computeRows();
+  const rows = computeRows();
   renderKPIs(rows);
-  if(S.fisicos||S.ebooks||S.alumnos||S.prestamos) renderMain();
+  if (S.completo || S.alumnos || S.prestamos) renderMain();
+  renderCNA();
   renderUA();
 }
 
-/* ── Init ── */
-const dz=document.getElementById('dropZone');
-document.getElementById('mainInput').addEventListener('change',e=>{handleFiles([...e.target.files]);e.target.value='';});
-dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
-dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
-dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');handleFiles([...e.dataTransfer.files]);});
+// ─────────────────────────────────────────────
+//  INICIALIZACIÓN
+// ─────────────────────────────────────────────
+const dz = document.getElementById('dropZone');
 
-const d=new Date();
-document.getElementById('dateBadge').textContent='Período: Enero 2025 – '+d.toLocaleDateString('es-CL',{day:'numeric',month:'long',year:'numeric'});
+document.getElementById('mainInput').addEventListener('change', e => {
+  handleFiles([...e.target.files]);
+  e.target.value = '';
+});
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag');
+  handleFiles([...e.dataTransfer.files]);
+});
+
+// Badge de fecha
+const _d = new Date();
+document.getElementById('dateBadge').textContent =
+  'Préstamos (Inf. 72): 2019 – ' + _d.toLocaleDateString('es-CL', {day:'numeric', month:'long', year:'numeric'});
+
 render();
 </script>
 </body>
