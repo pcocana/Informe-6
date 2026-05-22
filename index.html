@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel de Indicadores · Sistema de Bibliotecas PUCV</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 :root {
@@ -173,6 +174,19 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
 .method-block-head p{font-size:11px;color:var(--text2);margin-top:1px}
 .method-block-body{padding:.75rem 1rem 1rem}
 
+
+/* ── Tabs ── */
+.tab-bar{display:flex;gap:4px;margin-bottom:1.5rem;border-bottom:2px solid var(--border);padding-bottom:0}
+.tab-btn{padding:8px 20px;border:none;background:none;font-family:var(--font);font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;border-radius:var(--r) var(--r) 0 0;transition:all .15s;display:flex;align-items:center;gap:6px}
+.tab-btn:hover{color:var(--text);background:var(--bg)}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--navy);background:var(--surface)}
+.tab-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* ── Dashboard ── */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:1.125rem 1.25rem}
+.dash-card-title{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:1rem}
+.dash-card canvas{max-height:280px}
+@media(max-width:900px){.dash-grid{grid-template-columns:1fr}}
 @media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto}.main{padding:1rem}}
 </style>
 </head>
@@ -223,8 +237,15 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
   <div class="sb-footer">
     Los archivos se procesan localmente.<br>
     Ningún dato sale de este navegador.<br><br>
-    Informes oficiales: 46 · 72 · 78 · 106<br>
-    72 = Préstamos (desde 2019) · 78 = Alumnos<br>
+    <strong style="color:rgba(255,255,255,.6)">Formato unificado PUCV:</strong><br>
+    <span style="font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.35);line-height:1.8">
+    BIBLIOTECA;UA;TITULOS;<br>
+    EJEMPLARES;EBOOKS;<br>
+    PRESTAMOS;<br>
+    ALUMNOS_PRE;ALUMNOS_POS
+    </span><br>
+    UA vacía = nivel biblioteca<br>
+    Informes legacy: 46 · 72 · 78 · 106<br>
     Sistema de Bibliotecas PUCV · 2025
   </div>
 </aside>
@@ -236,6 +257,21 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
     <p>Carga los exports CSV de KOHA — la herramienta cruza los datos y calcula los KPIs automáticamente</p>
     <span class="date-badge" id="dateBadge"></span>
   </div>
+
+  <!-- Tab bar — visible solo con datos cargados -->
+  <div class="tab-bar" id="tabBar" style="display:none">
+    <button class="tab-btn active" id="tab-btn-indicadores" onclick="showTab('indicadores')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Indicadores
+    </button>
+    <button class="tab-btn" id="tab-btn-dashboard" onclick="showTab('dashboard')">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Dashboard
+    </button>
+  </div>
+
+  <!-- TAB: Indicadores -->
+  <div id="tab-indicadores">
 
   <div class="section" id="kpiSection">
     <div class="section-head"><div class="section-title">Totales del sistema</div></div>
@@ -289,13 +325,13 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
         <thead>
           <tr>
             <th rowspan="2" style="text-align:left;vertical-align:bottom">Biblioteca</th>
-            <th colspan="3"><span class="grp">Colección (Inf. 46)</span></th>
+            <th colspan="4"><span class="grp">Colección (Inf. 46)</span></th>
             <th colspan="3"><span class="grp">Usuarios (Inf. 78)</span></th>
             <th><span class="grp">KPI</span></th>
             <th colspan="2"><span class="grp">Circulación (Inf. 72)</span></th>
           </tr>
           <tr>
-            <th>Total títulos</th><th>Tít. físicos</th><th>eBooks</th>
+            <th>Total títulos</th><th>Tít. físicos</th><th>Ejemplares</th><th>eBooks</th>
             <th>Al. pregrado</th><th>Al. postgrado</th><th>Total alumnos</th>
             <th title="Títulos físicos ÷ Alumnos (eBooks excluidos)">Ratio Fís./A</th>
             <th>Préstamos</th><th>Prést./alumno</th>
@@ -322,6 +358,20 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
     <div class="section-head"><div class="section-title">Análisis por unidad académica (UA) — Informe 106</div></div>
     <div id="uaSection"></div>
   </div>
+
+  </div><!-- /tab-indicadores -->
+
+  <!-- TAB: Dashboard -->
+  <div id="tab-dashboard" style="display:none">
+    <div id="dashSection">
+      <div class="empty-state" style="padding:4rem 0">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="var(--text3)"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <h3>Sin datos cargados</h3>
+        <p>Carga los CSV de KOHA para ver los gráficos</p>
+      </div>
+    </div>
+  </div>
+
 </main>
 </div>
 
@@ -380,6 +430,12 @@ const EXCLUIR = ['DIRBIB','BIBRCV','BIBMUS'];
 // ─────────────────────────────────────────────
 const FILE_DEFS = [
   {
+    id:'unificado',
+    label:'📋 Datos consolidados PUCV (nuevo)',
+    hint:'BIBLIOTECA · UA · TITULOS · EJEMPLARES · EBOOKS · PRESTAMOS · ALUMNOS_PRE · ALUMNOS_POS',
+    isBoolean: true   // S.unificado es boolean, no objeto
+  },
+  {
     id:'completo',
     label:'Informe 46 · Colección',
     hint:'Bib. de Origen · Títulos · Ejm · eBooks'
@@ -397,8 +453,9 @@ const FILE_DEFS = [
   {
     id:'ua',
     label:'Informe 106 · Títulos por UA',
-    hint:'Unidad_academica · Títulos · Ejemplares · eBooks',
-    isArray: true   // S.ua es array — se acumulan varios archivos
+    hint:'UA · TITULOS · EJEMPLARES · EBOOKS',
+    isArray: true,
+    forceUA: true   // siempre procesar como UA sin pasar por detectType
   },
   {
     id:'prestamosUA',
@@ -417,7 +474,8 @@ const S = {
   prestamosUA: null,   // Préstamos por UA (cada fila = 1 transacción) → Indicador [37] CNA
   ua:          [],     // Informe 106 (acumulativo por UA)
   uaAlumnos:   {},     // Alumnos ingresados manualmente por UA (sección UA)
-  alumnosCNA:  {}      // Alumnos ingresados manualmente por biblioteca (sección CNA método alt.)
+  alumnosCNA:  {},     // Alumnos ingresados manualmente por biblioteca (sección CNA método alt.)
+  unificado:   false   // true si se cargó al menos un archivo en formato unificado PUCV
 };
 
 // ─────────────────────────────────────────────
@@ -492,6 +550,14 @@ function detectType(filename, headers) {
   // Normalizar cabeceras: sin tildes, minúsculas → resistente a CP1252 mal decodificado
   const hs = new Set(headers.map(h => norm(h)));
 
+  // Formato unificado PUCV: columna BIBLIOTECA (standalone) + al menos una columna numérica conocida
+  // Convive con los informes existentes sin conflicto porque:
+  //   - Inf.46 usa 'biblioteca de origen' (≠ 'biblioteca')
+  //   - Inf.72 usa 'biblioteca actual'   (≠ 'biblioteca')
+  //   - Inf.78 usa 'branchcode'
+  //   - Inf.106 usa 'unidad_academica'
+  if (hs.has('biblioteca') && (hs.has('titulos') || hs.has('prestamos') || hs.has('alumnos_pre') || hs.has('alumnos_pos'))) return 'unificado';
+
   // Informe 46: colección por biblioteca (Biblioteca de Origen + titulos + ebooks/libros)
   if (hs.has('biblioteca de origen') && hs.has('titulos') && (hs.has('ebooks') || hs.has('libros'))) return 'completo';
 
@@ -501,8 +567,11 @@ function detectType(filename, headers) {
   // Informe 78: alumnos por biblioteca
   if (hs.has('categorycode') || hs.has('numberenrolled')) return 'alumnos';
 
-  // Informe 106: títulos por unidad académica
+  // Informe 106: columna Unidad_academica (formato original KOHA)
   if (hs.has('unidad_academica')) return 'ua';
+
+  // Informe 106 formato limpio: columna UA + datos numéricos (sin tansaccion — eso es prestamosUA)
+  if (hs.has('ua') && (hs.has('titulos') || hs.has('ejemplares')) && !hs.has('tansaccion') && !hs.has('transaccion')) return 'ua';
 
   // Informe 72: préstamos
   if (hs.has('biblionumber') || hs.has('count of items') || hs.has('biblioteca actual')) return 'prestamos';
@@ -615,19 +684,89 @@ function processPrestamosUA(rows) {
 }
 
 /**
- * processUA — Informe 106
- * Columnas: Unidad_academica | Títulos | Ejemplares | eBooks
- * El informe 106 no incluye columna Biblioteca.
- * Usa claves normalizadas para evitar problemas de encoding CP1252.
+ * processUA — Informe 106 (dos formatos soportados)
+ *
+ * Formato original KOHA:  Unidad_academica | Títulos | Ejemplares | eBooks
+ * Formato limpio PUCV:    BIBLIOTECA | UA | TITULOS | EJEMPLARES | EBOOKS
+ * Mínimo aceptable:       UA | TITULOS | EJEMPLARES | EBOOKS  (sin bib)
+ *
+ * Las claves ya vienen normalizadas desde parseCSV (sin tildes, minúsculas).
  */
 function processUA(rows) {
   return rows.map(r => ({
-    bib:       (r.biblioteca || '').trim(),
-    ua:        (r.unidad_academica || '').trim(),
-    titulos:   parseInt(r.titulos    || 0) || 0,   // clave sin tilde → funciona siempre
+    // Biblioteca: columna BIBLIOTECA (formato limpio) — puede estar vacía en KOHA
+    bib:       (r.biblioteca || r.bib || '').trim(),
+    // UA: columna UA (formato limpio) o Unidad_academica (formato KOHA original)
+    ua:        (r.ua || r.unidad_academica || '').trim(),
+    titulos:   parseInt(r.titulos    || 0) || 0,
     ejemplares:parseInt(r.ejemplares || 0) || 0,
     ejmEbooks: parseInt(r.ebooks     || 0) || 0,
   })).filter(x => x.ua);
+}
+
+/**
+ * processUnificado — Formato unificado PUCV
+ * Columnas: BIBLIOTECA · UA · TITULOS · EJEMPLARES · EBOOKS · PRESTAMOS · ALUMNOS_PRE · ALUMNOS_POS
+ *
+ * Reglas:
+ *  - Fila con UA vacía → datos a nivel de biblioteca (S.completo + S.prestamos + S.alumnos)
+ *  - Fila con UA rellena → datos de esa unidad académica (S.ua)
+ *  - Solo las columnas presentes se leen; las ausentes se ignoran
+ *
+ * Esto permite generar desde KOHA un único informe limpio con cualquier
+ * combinación de columnas según lo que se necesite.
+ */
+function processUnificado(rows) {
+  // Detectar qué columnas están presentes en el archivo
+  const hasTitulos   = rows.some(r => r.titulos    !== undefined);
+  const hasEjm       = rows.some(r => r.ejemplares !== undefined);
+  const hasEbooks    = rows.some(r => r.ebooks     !== undefined);
+  const hasPrestamos = rows.some(r => r.prestamos  !== undefined);
+  const hasAlPre     = rows.some(r => r.alumnos_pre !== undefined);
+  const hasAlPos     = rows.some(r => r.alumnos_pos !== undefined);
+
+  rows.forEach(r => {
+    const bib = (r.biblioteca || '').trim();
+    const ua  = (r.ua         || '').trim();
+    if (!bib) return;
+
+    const tit  = parseInt(r.titulos     || 0) || 0;
+    const ejm  = parseInt(r.ejemplares  || 0) || 0;
+    const eb   = parseInt(r.ebooks      || 0) || 0;
+    const pr   = hasPrestamos ? (parseInt(r.prestamos  || 0) || 0) : null;
+    const alPre = hasAlPre    ? (parseInt(r.alumnos_pre || 0) || 0) : null;
+    const alPos = hasAlPos    ? (parseInt(r.alumnos_pos || 0) || 0) : null;
+
+    if (ua) {
+      // ── Datos de unidad académica ──────────────────────────────
+      S.ua = S.ua.filter(x => !(x.ua === ua && x.bib === bib));
+      S.ua.push({
+        bib, ua,
+        titulos:    tit,
+        ejemplares: ejm,
+        ejmEbooks:  eb,
+      });
+    } else {
+      // ── Datos a nivel de biblioteca ────────────────────────────
+      if (hasTitulos || hasEjm || hasEbooks) {
+        const titFisicos = Math.max(0, tit - eb);
+        const ejmLibros  = Math.max(0, ejm - eb);
+        if (!S.completo) S.completo = {};
+        S.completo[bib] = {
+          titulos: tit, titFisicos, titBiblio: titFisicos,
+          ejemplares: ejm, ejmLibros, ejmEbooks: eb, ejmTesis: null,
+        };
+      }
+      if (hasPrestamos && pr !== null) {
+        if (!S.prestamos) S.prestamos = {};
+        S.prestamos[bib] = pr;
+      }
+      if ((hasAlPre || hasAlPos) && (alPre !== null || alPos !== null)) {
+        if (!S.alumnos) S.alumnos = {};
+        S.alumnos[bib] = {pre: alPre || 0, pos: alPos || 0};
+      }
+    }
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -652,6 +791,11 @@ async function handleFiles(files, isUA = false) {
         }
         break;
       }
+      case 'unificado':
+        processUnificado(rows);
+        S.unificado = true;
+        break;
+
       case 'prestamosUA': {
         // Acumula transacciones (un archivo puede ser solo para una UA)
         const nuevo = processPrestamosUA(rows);
@@ -904,19 +1048,20 @@ document.getElementById('nameModal').addEventListener('click', e => {
 function renderChips() {
   document.getElementById('chipsList').innerHTML = FILE_DEFS.map(fd => {
     const data   = S[fd.id];
-    // S.ua es array → cargado si tiene al menos 1 elemento
-    const loaded = fd.isArray ? (Array.isArray(data) && data.length > 0) : (data !== null && data !== undefined);
-    const count  = loaded
-      ? (fd.isArray ? data.length : Object.keys(data).length)
-      : 0;
+    // S.ua es array · S.unificado es boolean
+    const loaded = fd.isBoolean ? data === true
+                 : fd.isArray   ? (Array.isArray(data) && data.length > 0)
+                 :                (data !== null && data !== undefined);
+    const count  = loaded && !fd.isBoolean && !fd.isArray ? Object.keys(data).length : 0;
+    const uaCount = fd.isArray && loaded ? data.length : 0;
     const hint   = loaded
-      ? (fd.isArray
-          ? `${count} UA${count !== 1 ? 's' : ''} cargada${count !== 1 ? 's' : ''} · arrastra para añadir`
-          : `${count} registros · OK`)
+      ? (fd.isBoolean ? 'Cargado — arrastra para añadir más datos'
+       : fd.isArray   ? `${uaCount} UA${uaCount !== 1 ? 's' : ''} · arrastra para añadir`
+       :                `${count} registros · OK`)
       : fd.hint;
     return `<div class="sb-file ${loaded ? 'loaded' : ''}">
       <input type="file" multiple accept=".csv"
-        onchange="handleFiles([...this.files]); this.value=''">
+        onchange="handleFiles([...this.files]${fd.forceUA ? ', true' : ''}); this.value=''">
       <div class="sb-file-dot"></div>
       <div class="sb-file-info">
         <div class="sb-file-name">${fd.label}</div>
@@ -953,7 +1098,7 @@ function renderKPIs(rows) {
 
   const totTit     = rows.reduce((a, r) => a + (r.titulos    || 0), 0);
   const totFis     = rows.reduce((a, r) => a + (r.titFisicos || 0), 0);
-  const totEjm     = rows.reduce((a, r) => a + (r.ejemplares || 0), 0);
+  const totEjm     = rows.reduce((a, r) => a + (r.ejmLibros  || 0), 0);  // ejemplares físicos
   const totEb      = rows.reduce((a, r) => a + (r.ejmEbooks  || 0), 0);
   const totAl      = S.alumnos   ? rows.reduce((a, r) => a + (r.alTot    || 0), 0) : null;
   const totPr      = S.prestamos ? rows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null;
@@ -961,10 +1106,11 @@ function renderKPIs(rows) {
   const avgRatio   = totFis && totAl ? totFis / totAl : null;
 
   const cards = [
-    {lbl:'Títulos físicos',        val: totFis > 0 ? totFis.toLocaleString('es-CL') : '—',  aux:'Sin eBooks · base del ratio'},
-    {lbl:'eBooks',                 val: totEb  > 0 ? totEb.toLocaleString('es-CL')  : '—',  aux:'Excluidos del ratio'},
-    {lbl:'Total títulos',          val: totTit > 0 ? totTit.toLocaleString('es-CL') : '—',  aux:'Físicos + eBooks · Inf. 46'},
-    {lbl:'Total alumnos',          val: totAl !== null ? totAl.toLocaleString('es-CL') : '—', aux:'Pregrado + postgrado · Inf. 78'},
+    {lbl:'Total títulos',               val: totTit > 0 ? totTit.toLocaleString('es-CL') : '—',  aux:'Físicos + eBooks · Inf. 46'},
+    {lbl:'Títulos físicos',             val: totFis > 0 ? totFis.toLocaleString('es-CL') : '—',  aux:'Sin eBooks · base del ratio'},
+    {lbl:'Ejemplares físicos',          val: totEjm > 0 ? totEjm.toLocaleString('es-CL') : '—',  aux:'Volúmenes colección física'},
+    {lbl:'eBooks',                      val: totEb  > 0 ? totEb.toLocaleString('es-CL')  : '—',  aux:'Excluidos del ratio'},
+    {lbl:'Total alumnos',               val: totAl !== null ? totAl.toLocaleString('es-CL') : '—', aux:'Pregrado + postgrado · Inf. 78'},
     {lbl:'Ratio tít. físicos / alumno', val: avgRatio !== null ? avgRatio.toFixed(1) : '—', aux:'Solo libros físicos · ≥10 verde', accent:true},
     ...(totPr !== null ? [{lbl:'Préstamos período', val: totPr.toLocaleString('es-CL'), aux:'Inf. 72 · desde 2019'}] : []),
   ];
@@ -1002,8 +1148,9 @@ function renderMain() {
   // Filas del cuerpo
   document.getElementById('mainBody').innerHTML = rows.map(r => `<tr>
     <td>${r.name}${r.fuente === 'completo' ? '' : ' <span class="miss" style="font-size:10px">(sin datos)</span>'}</td>
-    <td>${r.titulos !== null ? r.titulos.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
-    <td><strong>${r.titFisicos !== null ? r.titFisicos.toLocaleString('es-CL') : '<span class="miss">—</span>'}</strong></td>
+    <td><strong>${r.titulos !== null ? r.titulos.toLocaleString('es-CL') : '<span class="miss">—</span>'}</strong></td>
+    <td>${r.titFisicos !== null ? r.titFisicos.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+    <td>${r.ejmLibros !== null ? r.ejmLibros.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
     <td>${r.ejmEbooks !== null ? r.ejmEbooks.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
     <td>${n0(r.alPre)}</td>
     <td>${n0(r.alPos)}</td>
@@ -1017,6 +1164,7 @@ function renderMain() {
   const tot = {
     titulos:  rows.reduce((a, r) => a + (r.titulos    || 0), 0),
     titFis:   rows.reduce((a, r) => a + (r.titFisicos || 0), 0),
+    ejmLib:   rows.reduce((a, r) => a + (r.ejmLibros  || 0), 0),
     ejmEb:    rows.reduce((a, r) => a + (r.ejmEbooks  || 0), 0),
     alPre:    S.alumnos   ? rows.reduce((a, r) => a + (r.alPre    || 0), 0) : null,
     alPos:    S.alumnos   ? rows.reduce((a, r) => a + (r.alPos    || 0), 0) : null,
@@ -1030,7 +1178,8 @@ function renderMain() {
   document.getElementById('mainFoot').innerHTML = `<tr>
     <td>Total / promedio</td>
     <td>${tot.titulos.toLocaleString('es-CL')}</td>
-    <td><strong>${tot.titFis > 0 ? tot.titFis.toLocaleString('es-CL') : '<span class="miss">—</span>'}</strong></td>
+    <td>${tot.titFis > 0 ? tot.titFis.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
+    <td><strong>${tot.ejmLib > 0 ? tot.ejmLib.toLocaleString('es-CL') : '<span class="miss">—</span>'}</strong></td>
     <td>${tot.ejmEb  > 0 ? tot.ejmEb.toLocaleString('es-CL')  : '<span class="miss">—</span>'}</td>
     <td>${n0(tot.alPre)}</td>
     <td>${n0(tot.alPos)}</td>
@@ -1472,15 +1621,154 @@ function exportCNA() {
 }
 
 // ─────────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────────
+function showTab(name) {
+  ['indicadores','dashboard'].forEach(t => {
+    document.getElementById('tab-' + t).style.display        = t === name ? '' : 'none';
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === name);
+  });
+  if (name === 'dashboard') renderDashboard();
+}
+
+// ─────────────────────────────────────────────
+//  DASHBOARD — gráficos con Chart.js
+// ─────────────────────────────────────────────
+const _charts = {};  // registro de instancias para destruir antes de re-crear
+
+function destroyChart(id) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+function renderDashboard() {
+  const rows = computeRows().filter(r => r.fuente === 'completo');
+  const el   = document.getElementById('dashSection');
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:4rem 0">
+      <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="1.5" fill="none" stroke="var(--text3)" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+      <h3>Sin datos cargados</h3><p>Carga el Informe 46 para ver los gráficos</p></div>`;
+    return;
+  }
+
+  const labels   = rows.map(r => r.name);
+  const navy     = '#1B3A6B';
+  const teal     = '#1D9E75';
+  const amber    = '#BA7517';
+  const red      = '#A32D2D';
+  const navyLt   = 'rgba(27,58,107,.18)';
+  const tealLt   = 'rgba(29,158,117,.2)';
+  const gold     = '#C8A951';
+
+  // Colores del semáforo para el ratio
+  const ratioColors = rows.map(r =>
+    r.ratioAcred >= 10 ? teal : r.ratioAcred >= 5 ? amber : r.ratioAcred !== null ? red : '#ccc'
+  );
+
+  // Destruir gráficos anteriores
+  ['ch-titulos','ch-ejemplares','ch-ratio','ch-prestamos'].forEach(destroyChart);
+
+  el.innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card">
+        <div class="dash-card-title">Títulos físicos por biblioteca</div>
+        <canvas id="ch-titulos"></canvas>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Ejemplares físicos por biblioteca</div>
+        <canvas id="ch-ejemplares"></canvas>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Ratio títulos físicos / alumno · semáforo ≥10 · 5–9 · &lt;5</div>
+        <canvas id="ch-ratio"></canvas>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-title">Préstamos por biblioteca · desde 2019</div>
+        <canvas id="ch-prestamos"></canvas>
+      </div>
+    </div>`;
+
+  const opts = (title, horizontal=true) => ({
+    indexAxis: horizontal ? 'y' : 'x',
+    responsive: true,
+    plugins: {
+      legend: {display: false},
+      tooltip: {callbacks: {label: ctx => ' ' + ctx.parsed[horizontal?'x':'y'].toLocaleString('es-CL')}},
+    },
+    scales: {
+      x: {grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:11}}},
+      y: {grid:{display:false}, ticks:{font:{size:11}}},
+    },
+  });
+
+  _charts['ch-titulos'] = new Chart(document.getElementById('ch-titulos'), {
+    type:'bar',
+    data:{labels, datasets:[{
+      data: rows.map(r => r.titFisicos || 0),
+      backgroundColor: navy, borderRadius:3,
+    }]},
+    options: opts(),
+  });
+
+  _charts['ch-ejemplares'] = new Chart(document.getElementById('ch-ejemplares'), {
+    type:'bar',
+    data:{labels, datasets:[{
+      data: rows.map(r => r.ejmLibros || 0),
+      backgroundColor: teal, borderRadius:3,
+    }]},
+    options: opts(),
+  });
+
+  _charts['ch-ratio'] = new Chart(document.getElementById('ch-ratio'), {
+    type:'bar',
+    data:{labels, datasets:[{
+      data: rows.map(r => r.ratioAcred !== null ? +r.ratioAcred.toFixed(2) : 0),
+      backgroundColor: ratioColors, borderRadius:3,
+    }]},
+    options: {
+      ...opts(),
+      plugins: {
+        legend:{display:false},
+        annotation:{},
+        tooltip:{callbacks:{label: ctx => ' ' + ctx.parsed.x.toFixed(1) + ' tít./alumno'}},
+      },
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:11}}},
+        y:{grid:{display:false}, ticks:{font:{size:11}}},
+      },
+    },
+  });
+
+  if (S.prestamos) {
+    _charts['ch-prestamos'] = new Chart(document.getElementById('ch-prestamos'), {
+      type:'bar',
+      data:{labels, datasets:[{
+        data: rows.map(r => r.prestamos || 0),
+        backgroundColor: gold, borderRadius:3,
+      }]},
+      options: opts(),
+    });
+  } else {
+    document.getElementById('ch-prestamos').closest('.dash-card').innerHTML +=
+      '<p style="font-size:12px;color:var(--text3);margin-top:.5rem">Carga el Informe 72 para ver préstamos</p>';
+  }
+}
+
+// ─────────────────────────────────────────────
 //  RENDER PRINCIPAL
 // ─────────────────────────────────────────────
 function render() {
   renderChips();
   const rows = computeRows();
   renderKPIs(rows);
-  if (S.completo || S.alumnos || S.prestamos) renderMain();
+  const hayDatos = S.completo || S.alumnos || S.prestamos;
+  if (hayDatos) {
+    renderMain();
+    document.getElementById('tabBar').style.display = '';
+  }
   renderCNA();
   renderUA();
+  // Si el dashboard está visible, actualizarlo
+  if (document.getElementById('tab-dashboard')?.style.display !== 'none') renderDashboard();
 }
 
 // ─────────────────────────────────────────────
