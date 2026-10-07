@@ -1831,6 +1831,8 @@ function renderDashboard() {
   }
 
   const labels   = rows.map(r => r.name);
+  const hpx      = Math.max(220, rows.length * 26 + 60);   // alto por barra: así caben TODOS los nombres
+  const wrap     = id => `<div style="position:relative;height:${hpx}px"><canvas id="${id}"></canvas></div>`;
   const navy     = '#1B3A6B';
   const teal     = '#1D9E75';
   const amber    = '#BA7517';
@@ -1851,32 +1853,33 @@ function renderDashboard() {
     <div class="dash-grid">
       <div class="dash-card">
         <div class="dash-card-title">Títulos físicos por biblioteca</div>
-        <canvas id="ch-titulos"></canvas>
+        ${wrap('ch-titulos')}
       </div>
       <div class="dash-card">
         <div class="dash-card-title">Ejemplares físicos por biblioteca</div>
-        <canvas id="ch-ejemplares"></canvas>
+        ${wrap('ch-ejemplares')}
       </div>
       <div class="dash-card">
         <div class="dash-card-title">Ratio títulos físicos / alumno · semáforo ≥10 · 5–9 · &lt;5</div>
-        <canvas id="ch-ratio"></canvas>
+        ${wrap('ch-ratio')}
       </div>
       <div class="dash-card">
         <div class="dash-card-title">Préstamos por biblioteca · ${S.periodo}</div>
-        <canvas id="ch-prestamos"></canvas>
+        ${wrap('ch-prestamos')}
       </div>
     </div>`;
 
   const opts = (title, horizontal=true) => ({
     indexAxis: horizontal ? 'y' : 'x',
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {display: false},
       tooltip: {callbacks: {label: ctx => ' ' + ctx.parsed[horizontal?'x':'y'].toLocaleString('es-CL')}},
     },
     scales: {
       x: {grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:11}}},
-      y: {grid:{display:false}, ticks:{font:{size:11}}},
+      y: {grid:{display:false}, ticks:{font:{size:11}, autoSkip:false}},   // autoSkip:false → no se omite ninguna biblioteca
     },
   });
 
@@ -1912,7 +1915,7 @@ function renderDashboard() {
       },
       scales:{
         x:{grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:11}}},
-        y:{grid:{display:false}, ticks:{font:{size:11}}},
+        y:{grid:{display:false}, ticks:{font:{size:11}, autoSkip:false}},
       },
     },
   });
