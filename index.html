@@ -188,6 +188,18 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
 .dash-card canvas{max-height:280px}
 @media(max-width:900px){.dash-grid{grid-template-columns:1fr}}
 @media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto}.main{padding:1rem}}
+@media print{
+  @page{size:A4 landscape;margin:12mm}
+  body.print-ficha *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.print-ficha .sidebar,body.print-ficha .tab-bar,body.print-ficha .btn-export,
+  body.print-ficha .main>:not(#tab-indicadores):not(#tab-dashboard),
+  body.print-ficha #tab-indicadores>:not(#cnaSectionWrap){display:none!important}
+  body.print-ficha .layout{display:block}
+  body.print-ficha .main{padding:0;overflow:visible}
+  body.print-ficha .tbl-wrap{overflow:visible}
+  body.print-ficha input{border:none!important;background:none!important}
+  body.print-ficha canvas{max-width:100%!important}
+}
 </style>
 </head>
 <body>
@@ -273,6 +285,8 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
   <!-- TAB: Indicadores -->
   <div id="tab-indicadores">
 
+  <div id="qaSection"></div>
+
   <div class="section" id="kpiSection">
     <div class="section-head"><div class="section-title">Totales del sistema</div></div>
     <div class="kpi-grid" id="kpiGrid">
@@ -350,6 +364,7 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exportar ficha CNA
       </button>
+      <button class="btn-export" onclick="printFicha()" title="Imprime la ficha CNA y los gráficos; elige «Guardar como PDF»">Imprimir / PDF</button>
     </div>
     <div id="cnaSection"></div>
   </div>
@@ -411,6 +426,7 @@ const ORIGINAL_NAMES = {
   BIBRNT:'BIBRNT', BIBTEO:'Teología', DIRBIB:'Dir. Bibliotecas'
 };
 let NAMES = {...ORIGINAL_NAMES};
+const APP_VERSION = '2026.10-f1';
 
 // Bibliotecas activas que se muestran en el panel principal
 const MAIN = [
@@ -420,6 +436,15 @@ const MAIN = [
 
 // Bibliotecas excluidas del procesamiento (colegio, dirección, etc.)
 const EXCLUIR = ['DIRBIB','BIBRCV','BIBMUS'];
+
+/* ══ CONFIG · umbrales del semáforo (verde ≥ hi · amarillo ≥ lo · rojo < lo). Editar aquí. ══
+   NAMES/ORIGINAL_NAMES (nombres), MAIN (bibliotecas principales) y EXCLUIR están más arriba. */
+const CFG = {
+  ratio: {hi:10, lo:5},   // títulos físicos ÷ alumnos
+  prAl:  {hi:5,  lo:2},   // préstamos ÷ alumno
+  ind37: {hi:20, lo:5},   // (préstamos × 100) ÷ ejemplares
+};
+const semTxt = c => `≥ ${c.hi} verde · ${c.lo} a <${c.hi} amarillo · <${c.lo} rojo`;
 
 // ─────────────────────────────────────────────
 //  DEFINICIÓN DE INFORMES OFICIALES
@@ -474,9 +499,54 @@ const S = {
   prestamosUA: null,   // Préstamos por UA (cada fila = 1 transacción) → Indicador [37] CNA
   ua:          [],     // Informe 106 (acumulativo por UA)
   uaAlumnos:   {},     // Alumnos ingresados manualmente por UA (sección UA)
-  alumnosCNA:  {},     // Alumnos ingresados manualmente por biblioteca (sección CNA método alt.)
-  unificado:   false   // true si se cargó al menos un archivo en formato unificado PUCV
+  unificado:   false,  // true si se cargó al menos un archivo en formato unificado PUCV
+  periodo:     'desde 2019', // rótulo editable del período de préstamos (Inf. 72)
+  log:         [],     // trazabilidad: un registro por archivo leído
+  huellas:     new Map() // hash de contenido de archivos de préstamos por UA → UAs que aportó
 };
+
+/** Número tolerante: '1.234' → 1234 · '12,5' → 13 · '' → 0 (antes parseInt('1.234') daba 1). */
+function num(v) {
+  let t = String(v ?? '').trim().replace(/\s/g, '');
+  if (!t) return 0;
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d+,\d+$/.test(t)) t = t.replace(',', '.');
+  const x = parseFloat(t);
+  return isNaN(x) ? 0 : Math.round(x);
+}
+/** Escapa texto para insertarlo en HTML/atributos. */
+function escH(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+/** Hash simple (djb2) del contenido, para detectar archivos repetidos. */
+function hashTxt(t) { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ':' + t.length; }
+
+/** Celda con fórmula de Excel (v = valor en caché, para visores que no recalculan). */
+function fx(f, v) { return (v === null || v === undefined || v === '') ? {t:'s', f, v:''} : {t:'n', f, v}; }
+
+/** Clave única de una fila de UA: la misma UA puede existir en más de una biblioteca. */
+const ukey = x => (x.bib || '') + '|' + x.ua;
+
+// ─────────────────────────────────────────────
+//  PERSISTENCIA LOCAL (solo lo que se ingresa a mano)
+// ─────────────────────────────────────────────
+const SESION_KEY = 'pucv_panel_indicadores_sesion_v1';
+function saveSesion() {
+  try { localStorage.setItem(SESION_KEY, JSON.stringify({v:1, periodo:S.periodo, names:NAMES, uaAlumnos:S.uaAlumnos})); } catch (e) {}
+}
+function loadSesion() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SESION_KEY) || 'null');
+    if (!d || d.v !== 1) return;
+    if (d.periodo)   S.periodo = d.periodo;
+    if (d.names)     NAMES = {...ORIGINAL_NAMES, ...d.names};
+    if (d.uaAlumnos) S.uaAlumnos = d.uaAlumnos;
+  } catch (e) {}
+}
+function borrarSesion() {
+  try { localStorage.removeItem(SESION_KEY); } catch (e) {}
+  location.reload();
+}
 
 // ─────────────────────────────────────────────
 //  HELPERS DE ENCODING Y NORMALIZACIÓN
@@ -511,29 +581,32 @@ async function readFileText(file) {
 //  PARSEO CSV (delimitador ;)
 // ─────────────────────────────────────────────
 function parseCSV(text) {
-  // Elimina BOM si existe
-  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-  const lines = text.trim().split(/\r?\n/);
-  if (!lines.length) return {headers:[], rows:[]};
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);           // BOM
+  // Delimitador: el más frecuente en la 1ª línea fuera de comillas (empate → ';')
+  const first = text.split(/\r?\n/, 1)[0].replace(/"[^"]*"/g, '');
+  const delim = [';', '\t', ','].map(d => [d, first.split(d).length]).sort((a, b) => b[1] - a[1])[0][0];
 
-  const parseRow = l => {
-    const cells = []; let cell = '', inQ = false;
-    for (let i = 0; i < l.length; i++) {
-      const c = l[i];
-      if (c === '"') { inQ = !inQ; continue; }
-      if (c === ';' && !inQ) { cells.push(cell.trim()); cell = ''; }
-      else cell += c;
+  const recs = []; let row = [], cell = '', inQ = false;
+  const endRow = () => { row.push(cell.trim()); cell = ''; if (row.some(v => v !== '')) recs.push(row); row = []; };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else inQ = false; }
+      else cell += c;                                                 // incluye saltos de línea
     }
-    cells.push(cell.trim());
-    return cells;
-  };
+    else if (c === '"' && cell === '') inQ = true;                      // comilla solo abre al inicio de celda
+    else if (c === delim) { row.push(cell.trim()); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; endRow(); }
+    else cell += c;
+  }
+  if (cell !== '' || row.length) endRow();
+  if (!recs.length) return {headers:[], rows:[]};
 
-  const headers = parseRow(lines[0]).map(h => h.replace(/^"|"$/g,'').trim());
-  const rows = lines.slice(1).filter(l => l.trim()).map(l => {
-    const vals = parseRow(l);
+  const headers = recs[0].map(h => h.trim());
+  const rows = recs.slice(1).map(vals => {
     const obj = {};
     headers.forEach((h, i) => {
-      const val = (vals[i] || '').replace(/^"|"$/g,'').trim();
+      const val = (vals[i] || '').trim();
       obj[h]       = val;  // clave original  (ej: 'Títulos')
       obj[norm(h)] = val;  // clave sin tildes (ej: 'titulos') — resistente a CP1252/UTF-8
     });
@@ -598,7 +671,7 @@ function processInforme46(rows) {
     const bib = (r['biblioteca de origen'] || '').trim();
     if (!bib || bib.startsWith('FDO') || EXCLUIR.includes(bib)) return;
 
-    const n = k => parseInt(r[k] || 0) || 0;
+    const n = k => num(r[k]);
     // Acceso por clave normalizada: 'titulos', 'ejemplares', 'ebooks'
     const titulos    = n('titulos');
     const ejemplares = n('ejemplares');
@@ -639,7 +712,7 @@ function processAlumnos(rows) {
     const bib = r.branchcode || '';
     if (!bib) return;
     if (!m[bib]) m[bib] = {pre:0, pos:0};
-    const n = parseInt(r.numberenrolled || 0) || 0;
+    const n = num(r.numberenrolled);
     if ((r.categorycode || '').toUpperCase().includes('POS')) m[bib].pos += n;
     else m[bib].pre += n;
   });
@@ -647,7 +720,7 @@ function processAlumnos(rows) {
 }
 
 /**
- * processPrestamos — Informe 72 (rango desde 2019)
+ * processPrestamos — Informe 72 (rango según rótulo de período)
  * Columnas: Biblioteca Actual | Count of items
  */
 function processPrestamos(rows) {
@@ -656,7 +729,7 @@ function processPrestamos(rows) {
     // 'biblioteca actual' y 'count of items' ya vienen normalizados por parseCSV
     const bib = (r['biblioteca actual'] || '').trim();
     if (!bib) return;
-    m[bib] = (m[bib] || 0) + (parseInt(r['count of items'] || 0) || 0);
+    m[bib] = (m[bib] || 0) + (num(r['count of items']));
   });
   return m;
 }
@@ -698,9 +771,9 @@ function processUA(rows) {
     bib:       (r.biblioteca || r.bib || '').trim(),
     // UA: columna UA (formato limpio) o Unidad_academica (formato KOHA original)
     ua:        (r.ua || r.unidad_academica || '').trim(),
-    titulos:   parseInt(r.titulos    || 0) || 0,
-    ejemplares:parseInt(r.ejemplares || 0) || 0,
-    ejmEbooks: parseInt(r.ebooks     || 0) || 0,
+    titulos:   num(r.titulos),
+    ejemplares:num(r.ejemplares),
+    ejmEbooks: num(r.ebooks),
   })).filter(x => x.ua);
 }
 
@@ -730,12 +803,12 @@ function processUnificado(rows) {
     const ua  = (r.ua         || '').trim();
     if (!bib) return;
 
-    const tit  = parseInt(r.titulos     || 0) || 0;
-    const ejm  = parseInt(r.ejemplares  || 0) || 0;
-    const eb   = parseInt(r.ebooks      || 0) || 0;
-    const pr   = hasPrestamos ? (parseInt(r.prestamos  || 0) || 0) : null;
-    const alPre = hasAlPre    ? (parseInt(r.alumnos_pre || 0) || 0) : null;
-    const alPos = hasAlPos    ? (parseInt(r.alumnos_pos || 0) || 0) : null;
+    const tit  = num(r.titulos);
+    const ejm  = num(r.ejemplares);
+    const eb   = num(r.ebooks);
+    const pr   = hasPrestamos ? (num(r.prestamos)) : null;
+    const alPre = hasAlPre    ? (num(r.alumnos_pre)) : null;
+    const alPos = hasAlPos    ? (num(r.alumnos_pos)) : null;
 
     if (ua) {
       // ── Datos de unidad académica ──────────────────────────────
@@ -777,9 +850,16 @@ async function handleFiles(files, isUA = false) {
     // readFileText maneja CP1252 (encoding de KOHA) con fallback automático desde UTF-8
     const text = await readFileText(file);
     const {headers, rows} = parseCSV(text);
-    if (!rows.length) { console.warn('Archivo sin filas:', file.name); continue; }
+    if (!rows.length) { console.warn('Archivo sin filas:', file.name); S.log.push({archivo:file.name, tipo:'vacío', filas:0, leido:new Date().toLocaleString('es-CL'), avisos:['Archivo sin filas']}); continue; }
 
     const type = isUA ? 'ua' : detectType(file.name, headers);
+    const huella = hashTxt(text);
+    const avisos = [];
+    const entrada = {archivo:file.name, tipo:type, filas:rows.length, leido:new Date().toLocaleString('es-CL'), avisos};
+    if (type === 'prestamosUA' && S.huellas.has(huella)) {
+      avisos.push('Archivo ya cargado: omitido para no duplicar préstamos.');
+      entrada.tipo = type + ' (omitido)'; S.log.push(entrada); continue;
+    }
 
     switch (type) {
       case 'ua': {
@@ -799,6 +879,9 @@ async function handleFiles(files, isUA = false) {
       case 'prestamosUA': {
         // Acumula transacciones (un archivo puede ser solo para una UA)
         const nuevo = processPrestamosUA(rows);
+        S.huellas.set(huella, Object.keys(nuevo));
+        const sinCat = rows.filter(r => { const t = (r.notas || '').toLowerCase(); return !t.includes('postgrado') && !t.includes('pregrado'); }).length;
+        if (sinCat) avisos.push(`${sinCat} transacciones sin 'pregrado'/'postgrado' en Notas se contaron como pregrado.`);
         if (!S.prestamosUA) S.prestamosUA = {};
         Object.entries(nuevo).forEach(([ua, data]) => {
           if (!S.prestamosUA[ua]) S.prestamosUA[ua] = { total: 0, pre: 0, pos: 0 };
@@ -808,18 +891,29 @@ async function handleFiles(files, isUA = false) {
         });
         break;
       }
-      case 'completo':
+      case 'completo': {
         S.completo = processInforme46(rows);
+        const desc = [...new Set(rows.map(r => (r['biblioteca de origen'] || '').trim()).filter(b => b && !b.startsWith('FDO') && !EXCLUIR.includes(b) && !NAMES[b]))];
+        if (desc.length) avisos.push('Códigos de biblioteca no configurados: ' + desc.join(', '));
+        const exc = rows.filter(r => EXCLUIR.includes((r['biblioteca de origen'] || '').trim())).length;
+        if (exc) avisos.push(`${exc} fila(s) de bibliotecas excluidas (EXCLUIR).`);
         break;
-      case 'alumnos':
+      }
+        break;
+      case 'alumnos': {
         S.alumnos = processAlumnos(rows);
+        const cats = [...new Set(rows.map(r => r.categorycode || '(vacía)').filter(c => !c.toUpperCase().includes('POS')))];
+        if (cats.length) avisos.push('Categorías contadas como pregrado: ' + cats.join(', '));
         break;
+      }
       case 'prestamos':
         S.prestamos = processPrestamos(rows);
         break;
       default:
         console.warn('Tipo de archivo no reconocido:', file.name, '— Cabeceras:', headers.join(', '));
+        avisos.push('Tipo no reconocido. Cabeceras: ' + headers.join(', '));
     }
+    S.log.push(entrada);
   }
   render();
 }
@@ -908,15 +1002,15 @@ function exportToExcel() {
   const ws1 = XLSX.utils.aoa_to_sheet([
     ['Panel de Indicadores Bibliográficos · Sistema de Bibliotecas PUCV'],
     ['Generado el ' + fechaStr],
-    ['Informes utilizados: Informe 46 (colección) · Informe 72 (préstamos, desde 2019) · Informe 78 (alumnos) · Informe 106 (UA)'],
+    ['Informes utilizados: Informe 46 (colección) · Informe 72 (préstamos, ' + S.periodo + ') · Informe 78 (alumnos) · Informe 106 (UA)'],
     [],
     ['INDICADOR', 'VALOR', 'NOTAS'],
     ['Total títulos (físicos + eBooks)', totTit,              'Informe 46'],
     ['Títulos físicos',                  totFis > 0 ? totFis : 'Sin datos', 'Informe 46 − eBooks · base del ratio'],
     ['eBooks (excluidos del ratio)',     totEb  > 0 ? totEb  : 'Sin datos', 'No generan circulación física'],
     ['Total alumnos',                    totAl  ?? 'Sin datos', 'Pregrado + postgrado · Informe 78'],
-    ['Ratio tít. físicos/alumno (prom)',avgRatio ?? 'Sin datos', 'Verde ≥ 10 | Amarillo 5-9.9 | Rojo < 5'],
-    ['Total préstamos período',          totPr  ?? 'Sin datos', 'Informe 72 · rango desde 2019'],
+    ['Ratio tít. físicos/alumno (prom)', fx('IF(AND(ISNUMBER(B7),ISNUMBER(B9)),IF(AND(B7>0,B9>0),B7/B9,""),"")', avgRatio), semTxt(CFG.ratio)],
+    ['Total préstamos período',          totPr  ?? 'Sin datos', 'Informe 72 · rango ' + S.periodo + ''],
   ]);
   ws1['!cols'] = [{wch:40}, {wch:18}, {wch:48}];
   XLSX.utils.book_append_sheet(wb, ws1, 'KPIs Sistema');
@@ -948,32 +1042,24 @@ function exportToExcel() {
   const avgRatioFilt = totFilt.titFis && totFilt.alTot
     ? +(totFilt.titFis / totFilt.alTot).toFixed(1) : null;
 
+  const nB = filtRows.length, lastB = 1 + nB, totR = lastB + 2;
+  const fTot   = r => `IF(COUNT(E${r}:F${r})=0,"",SUM(E${r}:F${r}))`;
+  const fRatio = r => `IF(AND(ISNUMBER(C${r}),ISNUMBER(G${r})),IF(AND(C${r}>0,G${r}>0),C${r}/G${r},""),"")`;
+  const fPA    = r => `IF(AND(ISNUMBER(I${r}),ISNUMBER(G${r})),IF(G${r}>0,I${r}/G${r},""),"")`;
+  const sumC   = (c, v) => fx(`SUM(${c}2:${c}${lastB})`, v);
   const bibData = [
     ['Biblioteca', 'Total títulos', 'Tít. físicos', 'eBooks (excl. ratio)', 'Al. pregrado', 'Al. postgrado', 'Total alumnos', 'Ratio Fís./A', 'Préstamos', 'Prést./alumno'],
-    ...filtRows.map(r => [
-      r.name,
-      raw(r.titulos),
-      raw(r.titFisicos),
-      raw(r.ejmEbooks),
-      raw(r.alPre),
-      raw(r.alPos),
-      raw(r.alTot),
-      r.ratioAcred !== null ? +r.ratioAcred.toFixed(1) : null,
+    ...filtRows.map((r, i) => { const n = i + 2; return [
+      r.name, raw(r.titulos), raw(r.titFisicos), raw(r.ejmEbooks), raw(r.alPre), raw(r.alPos),
+      fx(fTot(n), r.alTot),
+      fx(fRatio(n), r.ratioAcred !== null ? +r.ratioAcred.toFixed(1) : null),
       raw(r.prestamos),
-      r.prAlumno   !== null ? +r.prAlumno.toFixed(1)   : null,
-    ]),
+      fx(fPA(n), r.prAlumno !== null ? +r.prAlumno.toFixed(1) : null),
+    ]; }),
     [],
-    ['TOTALES',
-      totFilt.titulos,
-      totFilt.titFis,
-      totFilt.ejmEb,
-      totFilt.alPre,
-      totFilt.alPos,
-      totFilt.alTot,
-      avgRatioFilt,
-      totFilt.pr,
-      null
-    ]
+    ['TOTALES', sumC('B', totFilt.titulos), sumC('C', totFilt.titFis), sumC('D', totFilt.ejmEb), sumC('E', totFilt.alPre), sumC('F', totFilt.alPos),
+      sumC('G', totFilt.alTot), fx(fRatio(totR), avgRatioFilt), sumC('I', totFilt.pr),
+      fx(fPA(totR), totFilt.pr && totFilt.alTot ? +(totFilt.pr / totFilt.alTot).toFixed(1) : null)],
   ];
   const ws2 = XLSX.utils.aoa_to_sheet(bibData);
   ws2['!cols'] = [{wch:30},{wch:14},{wch:14},{wch:10},{wch:13},{wch:14},{wch:14},{wch:10},{wch:13},{wch:13}];
@@ -984,7 +1070,7 @@ function exportToExcel() {
     const uaData = [
       ['Biblioteca','UA','Total títulos','Tít. físicos','eBooks','Alumnos UA (ingresados)','Ratio Fís./A','Nota'],
       ...S.ua.slice().sort((a, b) => a.ua.localeCompare(b.ua)).map(x => {
-        const uaAl   = S.uaAlumnos[x.ua] || null;
+        const uaAl   = S.uaAlumnos[ukey(x)] || null;
         const titFis = Math.max(0, x.titulos - x.ejmEbooks);
         const ratio  = titFis && uaAl ? +(titFis / uaAl).toFixed(1) : null;
         return [
@@ -1005,6 +1091,7 @@ function exportToExcel() {
   }
 
   const dateTag = d.toLocaleDateString('es-CL').replace(/\//g, '-');
+  addMetaSheet(wb, 'Panel de indicadores bibliográficos');
   XLSX.writeFile(wb, `Panel_Indicadores_KOHA_${dateTag}.xlsx`);
 }
 
@@ -1023,7 +1110,7 @@ function renderNameTable() {
     <tr>
       <td class="code">${code}</td>
       <td><input class="name-input" type="text" data-code="${code}"
-          value="${NAMES[code] || code}" placeholder="${code}"></td>
+          value="${escH(NAMES[code] || code)}" placeholder="${code}"></td>
     </tr>`).join('');
 }
 function saveNames() {
@@ -1031,11 +1118,13 @@ function saveNames() {
     const code = inp.dataset.code;
     NAMES[code] = inp.value.trim() || code;
   });
+  saveSesion();
   closeNameEditor();
   render();
 }
 function resetNames() {
   NAMES = {...ORIGINAL_NAMES};
+  saveSesion();
   renderNameTable();
 }
 document.getElementById('nameModal').addEventListener('click', e => {
@@ -1106,13 +1195,13 @@ function renderKPIs(rows) {
   const avgRatio   = totFis && totAl ? totFis / totAl : null;
 
   const cards = [
-    {lbl:'Total títulos',               val: totTit > 0 ? totTit.toLocaleString('es-CL') : '—',  aux:'Físicos + eBooks · Inf. 46'},
+    {lbl:'Total títulos',               val: totTit > 0 ? totTit.toLocaleString('es-CL') : '—',  aux:'Físicos + eBooks · Inf. 46 · suma por biblioteca'},
     {lbl:'Títulos físicos',             val: totFis > 0 ? totFis.toLocaleString('es-CL') : '—',  aux:'Sin eBooks · base del ratio'},
     {lbl:'Ejemplares físicos',          val: totEjm > 0 ? totEjm.toLocaleString('es-CL') : '—',  aux:'Volúmenes colección física'},
     {lbl:'eBooks',                      val: totEb  > 0 ? totEb.toLocaleString('es-CL')  : '—',  aux:'Excluidos del ratio'},
     {lbl:'Total alumnos',               val: totAl !== null ? totAl.toLocaleString('es-CL') : '—', aux:'Pregrado + postgrado · Inf. 78'},
     {lbl:'Ratio tít. físicos / alumno', val: avgRatio !== null ? avgRatio.toFixed(1) : '—', aux:'Solo libros físicos · ≥10 verde', accent:true},
-    ...(totPr !== null ? [{lbl:'Préstamos período', val: totPr.toLocaleString('es-CL'), aux:'Inf. 72 · desde 2019'}] : []),
+    ...(totPr !== null ? [{lbl:'Préstamos período', val: totPr.toLocaleString('es-CL'), aux:'Inf. 72 · ' + S.periodo + ''}] : []),
   ];
 
   document.getElementById('kpiGrid').innerHTML = cards.map(c => `
@@ -1155,9 +1244,9 @@ function renderMain() {
     <td>${n0(r.alPre)}</td>
     <td>${n0(r.alPos)}</td>
     <td>${n0(r.alTot)}</td>
-    <td>${badge(r.ratioAcred, 10, 5)}</td>
+    <td>${badge(r.ratioAcred, CFG.ratio.hi, CFG.ratio.lo)}</td>
     <td>${n0(r.prestamos)}</td>
-    <td>${badge(r.prAlumno, 5, 2)}</td>
+    <td>${badge(r.prAlumno, CFG.prAl.hi, CFG.prAl.lo)}</td>
   </tr>`).join('');
 
   // Totales en el pie de tabla
@@ -1176,7 +1265,7 @@ function renderMain() {
   const avgPA = tot.pr && tot.alTot ? tot.pr / tot.alTot : null;
 
   document.getElementById('mainFoot').innerHTML = `<tr>
-    <td>Total / promedio</td>
+    <td title="Suma por biblioteca: un título presente en varias bibliotecas se cuenta más de una vez">Total / promedio*</td>
     <td>${tot.titulos.toLocaleString('es-CL')}</td>
     <td>${tot.titFis > 0 ? tot.titFis.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
     <td><strong>${tot.ejmLib > 0 ? tot.ejmLib.toLocaleString('es-CL') : '<span class="miss">—</span>'}</strong></td>
@@ -1184,9 +1273,9 @@ function renderMain() {
     <td>${n0(tot.alPre)}</td>
     <td>${n0(tot.alPos)}</td>
     <td>${n0(tot.alTot)}</td>
-    <td>${badge(avgR, 10, 5)}</td>
+    <td>${badge(avgR, CFG.ratio.hi, CFG.ratio.lo)}</td>
     <td>${tot.pr !== null ? tot.pr.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
-    <td>${badge(avgPA, 5, 2)}</td>
+    <td>${badge(avgPA, CFG.prAl.hi, CFG.prAl.lo)}</td>
   </tr>`;
 
   // Poblar selector de bibliotecas (solo la primera vez)
@@ -1232,8 +1321,8 @@ function renderUA() {
   el.innerHTML = `
     <div class="ua-add-bar">
       ${uaList.map(ua => `
-        <span class="ua-tag">${ua}
-          <button onclick="removeUA('${ua}')" title="Quitar">×</button>
+        <span class="ua-tag">${escH(ua)}
+          <button data-ua="${escH(ua)}" onclick="removeUAName(this.dataset.ua)" title="Quitar (todas las bibliotecas)">×</button>
         </span>`).join('')}
       <label class="btn-add-ua">
         <input type="file" multiple accept=".csv"
@@ -1276,14 +1365,14 @@ function renderUA() {
         </thead>
         <tbody>
           ${uaRows.map(x => {
-            const uaAl = S.uaAlumnos[x.ua] || null;
+            const uaAl = S.uaAlumnos[ukey(x)] || null;
             // Ratio usa solo títulos físicos (sin eBooks)
             const titFis = Math.max(0, x.titulos - x.ejmEbooks);
             const ratio = (titFis && uaAl) ? titFis / uaAl : null;
             const bibNombre = NAMES[x.bib] || x.bib || '<span class="miss">—</span>';
-            return `<tr data-ua="${x.ua}">
+            return `<tr data-ua="${escH(ukey(x))}">
               <td>${bibNombre}</td>
-              <td style="text-align:left;font-family:var(--mono);font-size:11px">${x.ua}</td>
+              <td style="text-align:left;font-family:var(--mono);font-size:11px">${escH(x.ua)}</td>
               <td>${x.titulos.toLocaleString('es-CL')}</td>
               <td><strong>${titFis.toLocaleString('es-CL')}</strong></td>
               <td>${x.ejemplares.toLocaleString('es-CL')}</td>
@@ -1291,12 +1380,12 @@ function renderUA() {
               <td>
                 <input class="ua-al-input" type="number" min="1" placeholder="Nº alumnos"
                   value="${uaAl || ''}"
-                  oninput="setUAAlumnos('${x.ua}', this.value)"
+                  oninput="setUAAlumnos(this.closest('tr').dataset.ua, this.value)"
                   title="Ingresa el número de alumnos matriculados en esta UA">
               </td>
-              <td class="ua-ratio-cell">${badge(ratio, 10, 5)}</td>
+              <td class="ua-ratio-cell">${badge(ratio, CFG.ratio.hi, CFG.ratio.lo)}</td>
               <td style="text-align:center">
-                <button onclick="removeUA('${x.ua}')" title="Quitar UA"
+                <button onclick="removeUA(this.closest('tr').dataset.ua)" title="Quitar UA"
                   style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:2px 4px">×</button>
               </td>
             </tr>`;
@@ -1306,47 +1395,53 @@ function renderUA() {
     </div>`;
 }
 
-// setCNAAlumnos — actualiza el pie de tabla CNA alternativo cuando cambia un valor manual
-// (La fórmula Ind.[37] ya no usa alumnos sino ejemplares; esta función actualiza el pie)
-function setCNAAlumnos(bib, val) {
-  // ya no hay inputs de alumnos en la tabla CNA alternativo — función reservada
+function removeUA(key) {                       // quita una UA de UNA biblioteca (clave bib|ua)
+  const x = S.ua.find(e => ukey(e) === key);
+  S.ua = S.ua.filter(e => ukey(e) !== key);
+  delete S.uaAlumnos[key];
+  if (x && !S.ua.some(e => e.ua === x.ua)) limpiarPrestamosUA(x.ua);
+  saveSesion(); render();
+}
+function removeUAName(ua) {                    // quita la UA de todas las bibliotecas
+  S.ua.filter(e => e.ua === ua).forEach(e => delete S.uaAlumnos[ukey(e)]);
+  S.ua = S.ua.filter(e => e.ua !== ua);
+  limpiarPrestamosUA(ua); saveSesion(); render();
+}
+function limpiarPrestamosUA(ua) {
+  if (S.prestamosUA) delete S.prestamosUA[norm(ua)];
+  for (const [h, uas] of S.huellas) if (uas.includes(norm(ua))) S.huellas.delete(h);
 }
 
-function removeUA(ua) {
-  S.ua = S.ua.filter(x => x.ua !== ua);
-  delete S.uaAlumnos[ua];
-  render();
-}
-
-function setUAAlumnos(ua, val) {
-  const n = parseInt(val);
+function setUAAlumnos(ua, val) {               // 'ua' es la clave bib|ua de la fila
+  const n = num(val);
   if (!isNaN(n) && n > 0) S.uaAlumnos[ua] = n;
   else delete S.uaAlumnos[ua];
+  saveSesion();
 
-  const x      = S.ua.find(x => x.ua === ua);
+  const x      = S.ua.find(x => ukey(x) === ua);
   const titFis = x ? Math.max(0, x.titulos - x.ejmEbooks) : 0;
   const ratio  = (titFis && S.uaAlumnos[ua]) ? titFis / S.uaAlumnos[ua] : null;
 
   // ── Sección UA (panel general) ──
-  const uaRow = document.querySelector(`#uaSection tr[data-ua="${ua}"]`);
+  const uaRow = document.querySelector(`#uaSection tr[data-ua="${CSS.escape(ua)}"]`);
   if (uaRow) {
-    uaRow.querySelector('.ua-ratio-cell').innerHTML = badge(ratio, 10, 5);
+    uaRow.querySelector('.ua-ratio-cell').innerHTML = badge(ratio, CFG.ratio.hi, CFG.ratio.lo);
     // Sincronizar input si el foco no está ahí
     const inp = uaRow.querySelector('input[type="number"]');
     if (inp && inp !== document.activeElement) inp.value = S.uaAlumnos[ua] || '';
   }
 
   // ── Sección CNA (método CNA) ──
-  const cnaRow = document.querySelector(`#cnaSection tr[data-ua="${ua}"]`);
+  const cnaRow = document.querySelector(`#cnaSection tr[data-ua="${CSS.escape(ua)}"]`);
   if (cnaRow) {
     // Ratio colección
     const ratioCell = cnaRow.querySelector('.cna-ua-ratio-cell');
-    if (ratioCell) ratioCell.innerHTML = badge(ratio, 10, 5);
+    if (ratioCell) ratioCell.innerHTML = badge(ratio, CFG.ratio.hi, CFG.ratio.lo);
     // Indicador [37] CNA: (Préstamos UA × 100) ÷ Ejemplares UA
-    const prUA      = S.prestamosUA?.[norm(ua)];
+    const prUA      = S.prestamosUA?.[norm(x?.ua || '')];
     const ind37cna  = prUA && x?.ejemplares ? (prUA.total * 100) / x.ejemplares : null;
     const ind37Cell = cnaRow.querySelector('.cna-ua-ind37-cell');
-    if (ind37Cell) ind37Cell.innerHTML = badge(ind37cna, 20, 5);
+    if (ind37Cell) ind37Cell.innerHTML = badge(ind37cna, CFG.ind37.hi, CFG.ind37.lo);
     // Sincronizar input si el foco no está ahí
     const inp = cnaRow.querySelector('input[type="number"]');
     if (inp && inp !== document.activeElement) inp.value = S.uaAlumnos[ua] || '';
@@ -1373,13 +1468,12 @@ function renderCNA() {
   const totTit  = rows.reduce((a, r) => a + (r.titFisicos || 0), 0);
   const totAl   = S.alumnos   ? rows.reduce((a, r) => a + (r.alTot    || 0), 0) : null;
   const totPr   = S.prestamos ? rows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null;
-  const ind37alt = totPr && totAl ? totPr / totAl : null;
 
   // ── Tabla UA — método CNA ──
   const filasUA = S.ua.length ? S.ua.slice()
     .sort((a, b) => a.ua.localeCompare(b.ua))
     .map(x => {
-      const uaAl    = S.uaAlumnos[x.ua] || null;
+      const uaAl    = S.uaAlumnos[ukey(x)] || null;
       const titFis  = Math.max(0, x.titulos - x.ejmEbooks);
       const volFis  = Math.max(0, x.ejemplares - x.ejmEbooks);
       const ratioCol = titFis && uaAl ? titFis / uaAl : null;
@@ -1396,19 +1490,19 @@ function renderCNA() {
       const ind37bib  = bibRow?.prestamos && bibRow?.ejemplares
         ? (bibRow.prestamos * 100) / bibRow.ejemplares : null;
 
-      return `<tr data-ua="${x.ua}">
-        <td style="text-align:left;font-family:var(--mono);font-size:11px">${x.ua}</td>
+      return `<tr data-ua="${escH(ukey(x))}">
+        <td style="text-align:left;font-family:var(--mono);font-size:11px">${escH(x.ua)}</td>
         <td><strong>${titFis.toLocaleString('es-CL')}</strong></td>
         <td>${volFis.toLocaleString('es-CL')}</td>
         <td><input class="ua-al-input" type="number" min="1"
           placeholder="Nº alumnos"
           value="${uaAl || ''}"
-          oninput="setUAAlumnos('${x.ua}', this.value)"
+          oninput="setUAAlumnos(this.closest('tr').dataset.ua, this.value)"
           title="Alumnos matriculados en este programa"></td>
-        <td class="cna-ua-ratio-cell">${badge(ratioCol, 10, 5)}</td>
+        <td class="cna-ua-ratio-cell">${badge(ratioCol, CFG.ratio.hi, CFG.ratio.lo)}</td>
         <td style="line-height:1.2">${prTxt}</td>
-        <td class="cna-ua-ind37-cell">${badge(ind37cna, 20, 5)}</td>
-        <td>${badge(ind37bib, 20, 5)}${ind37bib !== null ? '<span class="miss" style="font-size:10px"> bib.</span>' : ''}</td>
+        <td class="cna-ua-ind37-cell">${badge(ind37cna, CFG.ind37.hi, CFG.ind37.lo)}</td>
+        <td>${badge(ind37bib, CFG.ind37.hi, CFG.ind37.lo)}${ind37bib !== null ? '<span class="miss" style="font-size:10px"> bib.</span>' : ''}</td>
       </tr>`;
     }).join('') : '';
 
@@ -1419,7 +1513,7 @@ function renderCNA() {
       <div class="method-block-head">
         <span class="cna-badge cna-badge-cna">Método CNA</span>
         <div>
-          <h4>Colección y circulación específica del programa · Indicador [37] = Préstamos UA ÷ Alumnos UA</h4>
+          <h4>Colección y circulación específica del programa · Indicador [37] = (Préstamos UA × 100) ÷ Ejemplares UA</h4>
           <p>Usa el Informe 106 (colección por UA) y el archivo de préstamos por UA (cada fila = 1 transacción)</p>
         </div>
       </div>
@@ -1475,7 +1569,7 @@ function renderCNA() {
         <div class="cna-note">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <span><strong>Fórmula:</strong> (Préstamos totales biblioteca × 100) ÷ Total ejemplares biblioteca ·
-          <strong>Numerador:</strong> Inf. 72 (préstamos desde 2019) ·
+          <strong>Numerador:</strong> Inf. 72 (préstamos ${S.periodo}) ·
           <strong>Denominador:</strong> Ejemplares Inf. 46 ·
           <strong>Filas 1 y 2:</strong> volúmenes y títulos físicos Inf. 46</span>
         </div>
@@ -1487,7 +1581,7 @@ function renderCNA() {
                 <th>Volúmenes [Fila 1]</th>
                 <th>Títulos [Fila 2]</th>
                 <th>Ejemplares (total)</th>
-                <th>Préstamos (desde 2019)</th>
+                <th>Préstamos (${S.periodo})</th>
                 <th title="(Préstamos × 100) ÷ Ejemplares — Indicador [37]">Ind. [37] = Prést.×100÷Ejm.</th>
               </tr>
             </thead>
@@ -1500,7 +1594,7 @@ function renderCNA() {
                   <td>${r.titFisicos !== null ? r.titFisicos.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
                   <td>${r.ejemplares !== null ? r.ejemplares.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
                   <td>${n0(r.prestamos)}</td>
-                  <td class="cna-ind37-cell">${badge(ind37, 20, 5)}</td>
+                  <td class="cna-ind37-cell">${badge(ind37, CFG.ind37.hi, CFG.ind37.lo)}</td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -1510,7 +1604,7 @@ function renderCNA() {
               <td>${totTit > 0 ? totTit.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
               <td>${(() => { const t = rows.reduce((a,r)=>a+(r.ejemplares||0),0); return t>0?t.toLocaleString('es-CL'):'<span class="miss">—</span>'; })()}</td>
               <td>${totPr !== null ? totPr.toLocaleString('es-CL') : '<span class="miss">—</span>'}</td>
-              <td>${(() => { const t=rows.reduce((a,r)=>a+(r.ejemplares||0),0); const i=totPr&&t?(totPr*100)/t:null; return badge(i,20,5); })()}</td>
+              <td>${(() => { const t=rows.reduce((a,r)=>a+(r.ejemplares||0),0); const i=totPr&&t?(totPr*100)/t:null; return badge(i, CFG.ind37.hi, CFG.ind37.lo); })()}</td>
             </tr></tfoot>
           </table>
         </div>
@@ -1543,7 +1637,7 @@ function exportCNA() {
     ['Fila 6 — Ind. [37] Método CNA',        '(Préstamos UA × 100) ÷ Ejemplares UA (Inf. 106 + archivo préstamos UA)'],
     ['Fila 6 — Ind. [37] Método alternativo','(Préstamos biblioteca × 100) ÷ Ejemplares biblioteca (Inf. 72 + Inf. 46)'],
     [],
-    ['Semáforo Ind. [37]', '≥ 20 verde · 5–19 amarillo · < 5 rojo'],
+    ['Semáforo Ind. [37]', semTxt(CFG.ind37)],
   ]);
   wsPort['!cols'] = [{wch:40},{wch:80}];
   XLSX.utils.book_append_sheet(wb, wsPort, 'Portada');
@@ -1553,23 +1647,20 @@ function exportCNA() {
   const totTit = rows.reduce((a, r) => a + (r.titFisicos || 0), 0);
   const totAl  = S.alumnos   ? rows.reduce((a, r) => a + (r.alTot    || 0), 0) : null;
   const totPr  = S.prestamos ? rows.reduce((a, r) => a + (r.prestamos|| 0), 0) : null;
-  const ind37alt = totPr && totAl ? +(totPr / totAl).toFixed(2) : null;
 
+  const n1 = rows.length, last1 = 4 + n1, tot1 = last1 + 2;
+  const f37 = r => `IF(AND(ISNUMBER(E${r}),ISNUMBER(D${r})),IF(D${r}>0,E${r}*100/D${r},""),"")`;
+  const calc37 = (pr, ej) => pr && ej ? +((pr * 100) / ej).toFixed(2) : null;
+  const totEjm = rows.reduce((a, r) => a + (r.ejemplares || 0), 0);
+  const sum1 = (c, v) => fx(`SUM(${c}5:${c}${last1})`, v);
   const ws1 = XLSX.utils.aoa_to_sheet([
     ['INDICADORES POR BIBLIOTECA — MÉTODO ALTERNATIVO'],
     ['Indicador [37] = (Préstamos totales biblioteca × 100) ÷ Total ejemplares biblioteca'],
     [],
-    ['Biblioteca', 'Volúmenes físicos [Fila 1]', 'Títulos físicos [Fila 2]', 'Ejemplares (total)', 'Préstamos (desde 2019)', 'Ind. [37] = Prést.×100÷Ejm.'],
-    ...rows.map(r => {
-      const ind37 = r.prestamos && r.ejemplares ? +((r.prestamos * 100) / r.ejemplares).toFixed(2) : null;
-      return [r.name, r.ejmLibros ?? null, r.titFisicos ?? null, r.ejemplares ?? null, r.prestamos ?? null, ind37];
-    }),
+    ['Biblioteca', 'Volúmenes físicos [Fila 1]', 'Títulos físicos [Fila 2]', 'Ejemplares (total)', 'Préstamos (' + S.periodo + ')', 'Ind. [37] = Prést.×100÷Ejm.'],
+    ...rows.map((r, i) => [r.name, r.ejmLibros ?? null, r.titFisicos ?? null, r.ejemplares ?? null, r.prestamos ?? null, fx(f37(5 + i), calc37(r.prestamos, r.ejemplares))]),
     [],
-    (() => {
-      const totEjm = rows.reduce((a, r) => a + (r.ejemplares || 0), 0);
-      const ind37  = totPr && totEjm ? +((totPr * 100) / totEjm).toFixed(2) : null;
-      return ['TOTAL SISTEMA', totVol, totTit, totEjm || null, totPr, ind37];
-    })(),
+    ['TOTAL SISTEMA', sum1('B', totVol), sum1('C', totTit), sum1('D', totEjm || null), sum1('E', totPr), fx(f37(tot1), calc37(totPr, totEjm))],
   ]);
   ws1['!cols'] = [{wch:30},{wch:24},{wch:22},{wch:18},{wch:24},{wch:26}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Por Biblioteca (Método Alt.)');
@@ -1578,7 +1669,7 @@ function exportCNA() {
   if (S.ua.length) {
     const hayPrUA = S.prestamosUA && Object.keys(S.prestamosUA).length > 0;
     const uaRows = S.ua.slice().sort((a, b) => a.ua.localeCompare(b.ua)).map(x => {
-      const uaAl   = S.uaAlumnos[x.ua] || null;
+      const uaAl   = S.uaAlumnos[ukey(x)] || null;
       const titFis = Math.max(0, x.titulos - x.ejmEbooks);
       const volFis = Math.max(0, x.ejemplares - x.ejmEbooks);
       const ratioCol = titFis && uaAl ? +(titFis / uaAl).toFixed(2) : null;
@@ -1599,6 +1690,7 @@ function exportCNA() {
         prUA?.pos   ?? null,
         ind37cna,
         ind37alt,
+        x.ejemplares ?? null,
       ];
     });
     const ws2 = XLSX.utils.aoa_to_sheet([
@@ -1609,20 +1701,33 @@ function exportCNA() {
       [],
       ['UA / Programa','Biblioteca','Títulos totales','Títulos físicos [F2]','Volúmenes físicos [F1]',
        'Alumnos UA','Ratio Tít.Fís./Alumno','Préstamos UA','  Pregrado','  Postgrado',
-       'Ind.[37] CNA = (Prést.UA×100)÷Ejm.UA','Ind.[37] Alt. = (Prést.Bib×100)÷Ejm.Bib'],
-      ...uaRows,
+       'Ind.[37] CNA = (Prést.UA×100)÷Ejm.UA','Ind.[37] Alt. = (Prést.Bib×100)÷Ejm.Bib', 'Ejemplares UA (total)'],
+      ...uaRows.map((row, i) => { const r = 5 + i;
+        row[6]  = fx(`IF(AND(ISNUMBER(F${r}),ISNUMBER(D${r})),IF(AND(F${r}>0,D${r}>0),D${r}/F${r},""),"")`, row[6]);
+        row[10] = fx(`IF(AND(ISNUMBER(H${r}),ISNUMBER(M${r})),IF(M${r}>0,H${r}*100/M${r},""),"")`, row[10]);
+        return row; }),
     ]);
-    ws2['!cols'] = [{wch:35},{wch:22},{wch:15},{wch:22},{wch:22},{wch:12},{wch:22},{wch:14},{wch:12},{wch:12},{wch:28},{wch:28}];
+    ws2['!cols'] = [{wch:35},{wch:22},{wch:15},{wch:22},{wch:22},{wch:12},{wch:22},{wch:14},{wch:12},{wch:12},{wch:28},{wch:28},{wch:20}];
     XLSX.utils.book_append_sheet(wb, ws2, 'Por UA (Método CNA)');
   }
 
   const dateTag = d.toLocaleDateString('es-CL').replace(/\//g, '-');
+  addMetaSheet(wb, 'Ficha acreditación CNA');
   XLSX.writeFile(wb, `Ficha_CNA_PUCV_${dateTag}.xlsx`);
 }
 
 // ─────────────────────────────────────────────
 //  TABS
 // ─────────────────────────────────────────────
+function printFicha() {
+  const dash = document.getElementById('tab-dashboard'), prev = dash.style.display;
+  document.body.classList.add('print-ficha');
+  dash.style.display = '';
+  try { renderDashboard(); } catch (e) {}
+  window.onafterprint = () => { document.body.classList.remove('print-ficha'); dash.style.display = prev; window.onafterprint = null; };
+  setTimeout(() => window.print(), 500);   // deja que Chart.js termine de dibujar
+}
+
 function showTab(name) {
   ['indicadores','dashboard'].forEach(t => {
     document.getElementById('tab-' + t).style.display        = t === name ? '' : 'none';
@@ -1661,7 +1766,7 @@ function renderDashboard() {
 
   // Colores del semáforo para el ratio
   const ratioColors = rows.map(r =>
-    r.ratioAcred >= 10 ? teal : r.ratioAcred >= 5 ? amber : r.ratioAcred !== null ? red : '#ccc'
+    r.ratioAcred >= CFG.ratio.hi ? teal : r.ratioAcred >= CFG.ratio.lo ? amber : r.ratioAcred !== null ? red : '#ccc'
   );
 
   // Destruir gráficos anteriores
@@ -1682,7 +1787,7 @@ function renderDashboard() {
         <canvas id="ch-ratio"></canvas>
       </div>
       <div class="dash-card">
-        <div class="dash-card-title">Préstamos por biblioteca · desde 2019</div>
+        <div class="dash-card-title">Préstamos por biblioteca · ${S.periodo}</div>
         <canvas id="ch-prestamos"></canvas>
       </div>
     </div>`;
@@ -1728,7 +1833,6 @@ function renderDashboard() {
       ...opts(),
       plugins: {
         legend:{display:false},
-        annotation:{},
         tooltip:{callbacks:{label: ctx => ' ' + ctx.parsed.x.toFixed(1) + ' tít./alumno'}},
       },
       scales:{
@@ -1754,10 +1858,54 @@ function renderDashboard() {
 }
 
 // ─────────────────────────────────────────────
+//  CALIDAD DE DATOS Y TRAZABILIDAD
+// ─────────────────────────────────────────────
+function renderQA() {
+  const el = document.getElementById('qaSection');
+  if (!S.log.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="section">
+    <div class="section-head"><div class="section-title">Calidad de datos · trazabilidad</div></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:.6rem;font-size:12px">
+      <label for="periodoInp">Período de préstamos (rótulo en pantalla y Excel):</label>
+      <input id="periodoInp" value="${escH(S.periodo)}" onchange="S.periodo=this.value.trim()||'desde 2019';saveSesion();render()"
+        style="padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r);font-family:var(--font)">
+      <span style="color:var(--muted,#888)">Período, nombres y alumnos por UA se guardan en este navegador.</span>
+      <button onclick="borrarSesion()" style="padding:3px 8px;cursor:pointer">Borrar datos guardados</button>
+    </div>
+    <div class="tbl-wrap"><table><thead><tr><th style="text-align:left">Archivo</th><th>Tipo</th><th>Filas</th><th style="text-align:left">Avisos</th></tr></thead><tbody>
+    ${S.log.map(l => `<tr><td style="text-align:left">${escH(l.archivo)}</td><td>${escH(l.tipo)}</td><td>${l.filas}</td>
+      <td style="text-align:left;font-size:11px">${l.avisos.length ? escH(l.avisos.join(' · ')) : '<span class="miss">sin avisos</span>'}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+
+function addMetaSheet(wb, titulo) {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['METADATOS Y TRAZABILIDAD'], [titulo], [],
+    ['Generado', new Date().toLocaleString('es-CL')],
+    ['Versión de la herramienta', APP_VERSION],
+    ['Período de préstamos (rótulo)', S.periodo],
+    ['Bibliotecas excluidas (EXCLUIR)', EXCLUIR.join(', ')],
+    ['Semáforo ratio títulos/alumno', semTxt(CFG.ratio)],
+    ['Semáforo Ind. [37]', semTxt(CFG.ind37)],
+    ['Semáforo préstamos/alumno', semTxt(CFG.prAl)],
+    ['Fórmulas', 'Los ratios e indicadores de los Excel son fórmulas vivas: al corregir un dato base se recalculan.'],
+    ['Nota', 'Los totales del sistema suman títulos por biblioteca: un título presente en varias bibliotecas se cuenta más de una vez.'],
+    [],
+    ['Archivo', 'Tipo detectado', 'Filas', 'Leído', 'Avisos'],
+    ...S.log.map(l => [l.archivo, l.tipo, l.filas, l.leido, l.avisos.join(' | ')]),
+  ]);
+  ws['!cols'] = [{wch:36},{wch:26},{wch:8},{wch:20},{wch:90}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Metadatos');
+}
+
+// ─────────────────────────────────────────────
 //  RENDER PRINCIPAL
 // ─────────────────────────────────────────────
 function render() {
   renderChips();
+  renderQA();
+  document.getElementById('dateBadge').textContent =
+    'Préstamos (Inf. 72): ' + S.periodo + ' · al ' + new Date().toLocaleDateString('es-CL', {day:'numeric', month:'long', year:'numeric'});
   const rows = computeRows();
   renderKPIs(rows);
   const hayDatos = S.completo || S.alumnos || S.prestamos;
@@ -1788,11 +1936,7 @@ dz.addEventListener('drop', e => {
   handleFiles([...e.dataTransfer.files]);
 });
 
-// Badge de fecha
-const _d = new Date();
-document.getElementById('dateBadge').textContent =
-  'Préstamos (Inf. 72): 2019 – ' + _d.toLocaleDateString('es-CL', {day:'numeric', month:'long', year:'numeric'});
-
+loadSesion();
 render();
 </script>
 </body>
