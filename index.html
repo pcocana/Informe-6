@@ -193,7 +193,7 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
   body.print-ficha *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body.print-ficha .sidebar,body.print-ficha .tab-bar,body.print-ficha .btn-export,
   body.print-ficha .main>:not(#tab-indicadores):not(#tab-dashboard),
-  body.print-ficha #tab-indicadores>:not(#cnaSectionWrap):not(#topoSection){display:none!important}
+  body.print-ficha #tab-indicadores>:not(#cnaSectionWrap){display:none!important}
   body.print-ficha .layout{display:block}
   body.print-ficha .main{padding:0;overflow:visible}
   body.print-ficha .tbl-wrap{overflow:visible}
@@ -357,8 +357,6 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
     </div>
   </div>
 
-  <div id="topoSection"></div>
-
   <div class="section" id="cnaSectionWrap" style="display:none">
     <div class="section-head">
       <div class="section-title">Ficha Acreditación CNA · Recursos bibliográficos</div>
@@ -428,7 +426,7 @@ const ORIGINAL_NAMES = {
   BIBRNT:'BIBRNT', BIBTEO:'Teología', DIRBIB:'Dir. Bibliotecas'
 };
 let NAMES = {...ORIGINAL_NAMES};
-const APP_VERSION = '2026.10-f1';
+const APP_VERSION = '2026.10-totales';
 
 // Bibliotecas activas que se muestran en el panel principal
 const MAIN = [
@@ -505,12 +503,8 @@ const S = {
   periodo:     'desde 2019', // rótulo editable del período de préstamos (Inf. 72)
   log:         [],     // trazabilidad: un registro por archivo leído
   huellas:     new Map(), // hash de contenido de archivos de préstamos por UA → UAs que aportó
-  topo:        {},   // Inf. 101 + signatura: {ua_norm: {nombre, claves:{'515.35':{pre,pos}}, total, sinSig, sinClase}}
-  rangosUA:    {},   // rangos Dewey de la colección de cada UA (texto ingresado)
-  topoSel:     null, // UA con el detalle abierto
   periodoUA:   {min: null, max: null}, // período real (fechas) de los préstamos por UA
   cargasUA:    [],   // archivos de préstamos por UA ya cargados: {archivo, min, max, uas}
-  itemsUA:     {},   // por UA: {total, items:{n°inventario: préstamos}} (Inf. 101 con columna de ejemplar)
   fuentesUA:   [],   // filas crudas de cada Informe 101 cargado {archivo, huella, rows, fk}: permite filtrar por fecha
   filtroUA:    {desde: '', hasta: ''}, // filtro de fechas (aaaa-mm-dd) de los préstamos por UA
   incluirRenov: true  // criterio institucional: las renovaciones («renew») cuentan como préstamos (desmarcable en el panel)
@@ -558,7 +552,7 @@ const ukey = x => (x.bib || '') + '|' + x.ua;
 // ─────────────────────────────────────────────
 const SESION_KEY = 'pucv_panel_indicadores_sesion_v1';
 function saveSesion() {
-  try { localStorage.setItem(SESION_KEY, JSON.stringify({v:1, periodo:S.periodo, names:NAMES, uaAlumnos:S.uaAlumnos, rangosUA:S.rangosUA, filtroUA:S.filtroUA, incluirRenov:S.incluirRenov})); } catch (e) {}
+  try { localStorage.setItem(SESION_KEY, JSON.stringify({v:1, periodo:S.periodo, names:NAMES, uaAlumnos:S.uaAlumnos, filtroUA:S.filtroUA, incluirRenov:S.incluirRenov})); } catch (e) {}
 }
 function loadSesion() {
   try {
@@ -567,7 +561,6 @@ function loadSesion() {
     if (d.periodo)   S.periodo = d.periodo;
     if (d.names)     NAMES = {...ORIGINAL_NAMES, ...d.names};
     if (d.uaAlumnos) S.uaAlumnos = d.uaAlumnos;
-    if (d.rangosUA)  S.rangosUA  = d.rangosUA;
     if (d.filtroUA)  S.filtroUA  = d.filtroUA;
     if (typeof d.incluirRenov === 'boolean') S.incluirRenov = d.incluirRenov;
   } catch (e) {}
@@ -920,7 +913,7 @@ async function handleFiles(files, isUA = false) {
         if (nRen) avisos.push(`${nRen} renovaciones («renew») de ${rows.length} filas: ${S.incluirRenov ? 'se cuentan como préstamos' : 'no se cuentan como préstamos (se informan aparte)'}.`);
         const vistos = new Set(); let dup = 0;
         rows.forEach(r => { const k = Object.keys(r).filter(c => c === norm(c)).map(c => r[c]).join('¦'); if (vistos.has(k)) dup++; else vistos.add(k); });
-        if (dup) avisos.push(itemKeyDe(rows[0]) ? `${dup} filas totalmente idénticas, incluido el N° de inventario: posible duplicado real; revisa el informe.` : `${dup} filas idénticas (misma fecha/minuto, título y UA): se mantienen, pueden ser varios ejemplares del mismo título. Con N° de inventario en el informe se podría distinguir.`);
+        if (dup) avisos.push(`${dup} filas idénticas en todas sus columnas: se mantienen; revisa si son duplicados del informe o varios ejemplares del mismo título.`);
         const fk = Object.keys(rows[0]).find(c => c === norm(c) && c.startsWith('fecha')) || null;
         if (fk) {
           const fs = rows.map(r => fechaCL(r[fk])).filter(Boolean).sort((a, b) => a - b);
@@ -1461,9 +1454,9 @@ function filasFiltradas(f) {
   if ((!d && !h) || !f.fk) return f.rows;
   return f.rows.filter(r => { const x = fechaCL(r[f.fk]); return x && (!d || x >= d) && (!h || x <= h); });
 }
-/** Recalcula préstamos por UA, topográfico y ejemplares desde las filas crudas, aplicando filtro de fechas y criterio de renovaciones. */
+/** Recalcula los préstamos por UA desde las filas crudas, aplicando el filtro de fechas y el criterio de renovaciones. */
 function reaplicarUA() {
-  S.prestamosUA = {}; S.topo = {}; S.itemsUA = {};
+  S.prestamosUA = {};
   const av = {};
   S.fuentesUA.forEach(f => {
     const rows = filasFiltradas(f); av[f.huella] = [];
@@ -1472,7 +1465,7 @@ function reaplicarUA() {
       const t = S.prestamosUA[ua] || (S.prestamosUA[ua] = {total: 0, pre: 0, pos: 0, renov: 0});
       t.total += d.total; t.pre += d.pre; t.pos += d.pos; t.renov += d.renov;
     });
-    av[f.huella] = [...processTopo(rows), ...processItems(rows)];
+    av[f.huella] = [];
   });
   return av;
 }
@@ -1482,7 +1475,7 @@ function setIncluirRenov(v) { S.incluirRenov = !!v; saveSesion(); reaplicarUA();
 
 function reiniciarPrestamosUA() {
   S.fuentesUA = [];
-  S.prestamosUA = {}; S.topo = {}; S.itemsUA = {}; S.huellas.clear(); S.cargasUA = []; S.periodoUA = {min: null, max: null};
+  S.prestamosUA = {}; S.huellas.clear(); S.cargasUA = []; S.periodoUA = {min: null, max: null};
   S.log = S.log.filter(l => !String(l.tipo).startsWith('prestamosUA'));
   render();
 }
@@ -1491,8 +1484,6 @@ function limpiarPrestamosUA(ua) {
   S.fuentesUA.forEach(f => { f.rows = f.rows.filter(r => norm(r.ua || '') !== norm(ua)); });
   reaplicarUA();
   if (S.prestamosUA) delete S.prestamosUA[norm(ua)];
-  if (S.topo) delete S.topo[norm(ua)];
-  if (S.itemsUA) delete S.itemsUA[norm(ua)];
   for (const [h, uas] of S.huellas) if (uas.includes(norm(ua))) S.huellas.delete(h);
 }
 
@@ -1796,8 +1787,6 @@ function exportCNA() {
   }
 
   const dateTag = d.toLocaleDateString('es-CL').replace(/\//g, '-');
-  addTopoSheets(wb);
-  addItemsSheet(wb);
   addMetaSheet(wb, 'Ficha acreditación CNA');
   XLSX.writeFile(wb, `Ficha_CNA_PUCV_${dateTag}.xlsx`);
 }
@@ -1944,193 +1933,6 @@ function renderDashboard() {
 }
 
 // ─────────────────────────────────────────────
-//  USO DE EJEMPLARES · N° de inventario en el Informe 101
-// ─────────────────────────────────────────────
-const ITEM_KEYS = ['item','inventario','numerodeinventario','nroinventario','ninventario','nodeinventario','barcode','codigodebarras','nroitem','numerodeitem','itemnumber'];
-const itemKeyDe = row => row ? Object.keys(row).find(k => k === norm(k) && ITEM_KEYS.includes(k.replace(/[^a-z]/g, ''))) : null;
-
-/** Cuenta préstamos por ejemplar (N° de inventario) dentro de cada UA. Devuelve avisos. */
-function processItems(rows) {
-  const ik = rows.length ? itemKeyDe(rows[0]) : null;
-  if (!ik) return ['Sin columna de ejemplar (item / N° de inventario): no se calcula uso de ejemplares.'];
-  let sin = 0;
-  rows.forEach(r => {
-    const ua = norm(r.ua || ''); if (!ua) return;
-    const inv = String(r[ik] || '').trim();
-    if (!inv) { sin++; return; }
-    const o = S.itemsUA[ua] || (S.itemsUA[ua] = {nombre: r.ua, total: 0, items: {}});
-    if (esRenov(r) && !S.incluirRenov) return;
-    const n = esRenov(r) ? 1 : (num(r.tansaccion ?? r.transaccion) || 1);
-    o.total += n; o.items[inv] = (o.items[inv] || 0) + n;
-  });
-  return sin ? [`${sin} transacciones sin N° de inventario (no entran al uso de ejemplares).`] : [];
-}
-function itemsResumen(ua) {
-  const o = S.itemsUA[ua]; if (!o) return null;
-  const v = Object.values(o.items);
-  return {nombre: o.nombre, prestamos: o.total, distintos: v.length, repetidos: v.filter(x => x >= 2).length};
-}
-function renderItemsTabla() {
-  const uas = Object.keys(S.itemsUA || {}); if (!uas.length) return '';
-  const f = (a, b) => b ? (a / b).toFixed(2).replace('.', ',') : '—';
-  const p = (a, b) => b ? (a * 100 / b).toFixed(1).replace('.', ',') + ' %' : '—';
-  return `<div style="font-weight:600;font-size:12px;margin:1rem 0 .4rem">Uso de ejemplares (por N° de inventario) · préstamos de los alumnos de cada UA</div>
-    <div class="tbl-wrap"><table><thead><tr><th style="text-align:left">UA</th><th>Préstamos con N° inventario</th><th>Ejemplares distintos prestados</th><th>Préstamos por ejemplar</th><th>Ejemplares con 2+ préstamos</th><th>% con 2+</th></tr></thead><tbody>
-    ${uas.map(u => itemsResumen(u)).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(r => `<tr><td style="text-align:left">${escH(r.nombre)}</td><td>${r.prestamos.toLocaleString('es-CL')}</td><td>${r.distintos.toLocaleString('es-CL')}</td><td>${f(r.prestamos, r.distintos)}</td><td>${r.repetidos.toLocaleString('es-CL')}</td><td>${p(r.repetidos, r.distintos)}</td></tr>`).join('')}
-    </tbody></table></div>
-    <div style="font-size:11px;margin-top:.3rem">Ejemplares prestados por los alumnos de la UA: pueden pertenecer a cualquier colección. Para medir el movimiento de la colección propia hace falta además la signatura.</div>`;
-}
-function addItemsSheet(wb) {
-  const uas = Object.keys(S.itemsUA || {}); if (!uas.length) return;
-  const res = uas.map(u => itemsResumen(u)).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  const ws = XLSX.utils.aoa_to_sheet([
-    ['USO DE EJEMPLARES POR N° DE INVENTARIO — PRÉSTAMOS DE LOS ALUMNOS DE CADA UA'],
-    ['Fuente: Informe 101' + (periodoUATxt() ? ' · período ' + periodoUATxt() : '') + '. Los ejemplares prestados pueden pertenecer a cualquier colección.'],
-    [],
-    ['UA / Programa', 'Préstamos con N° inventario', 'Ejemplares distintos prestados', 'Préstamos por ejemplar', 'Ejemplares con 2+ préstamos', '% con 2+ préstamos'],
-    ...res.map((r, i) => { const n = 5 + i; return [r.nombre, r.prestamos, r.distintos,
-      fx(`IF(C${n}>0,B${n}/C${n},"")`, r.distintos ? r.prestamos / r.distintos : null), r.repetidos,
-      fx(`IF(C${n}>0,E${n}/C${n},"")`, r.distintos ? r.repetidos / r.distintos : null)]; }),
-  ]);
-  res.forEach((_, i) => { const a = ws['D' + (5 + i)], b = ws['F' + (5 + i)]; if (a) a.z = '0.00'; if (b) b.z = '0.0%'; });
-  ws['!cols'] = [{wch:34},{wch:24},{wch:28},{wch:20},{wch:26},{wch:18}];
-  XLSX.utils.book_append_sheet(wb, ws, 'Uso de ejemplares');
-}
-
-// ─────────────────────────────────────────────
-//  MOVIMIENTO POR TOPOGRÁFICO (Dewey) · Informe 101 + signatura
-// ─────────────────────────────────────────────
-const SIG_KEYS = ['signatura','signaturatopografica','topografico','topografica','itemcallnumber','callnumber','clasificacion','cdd','dewey'];
-
-/** Número Dewey de una signatura: '515 FIG' → 515 · '515.35 F54' → 515.35 · 'REF 510.1 B3' → 510.1 */
-function deweyDe(sig) {
-  const m = String(sig || '').match(/(?<![\d.,])(\d{3})(?!\d)(?:\.(\d+))?/);
-  return m ? parseFloat(m[1] + (m[2] ? '.' + m[2] : '')) : null;
-}
-
-/** Acumula por UA los préstamos por clase Dewey. Devuelve avisos de calidad. */
-function processTopo(rows) {
-  const sigKey = rows.length ? Object.keys(rows[0]).find(k => k === norm(k) && SIG_KEYS.includes(k.replace(/[^a-z]/g, ''))) : null;
-  if (!sigKey) return ['Sin columna de signatura (en Koha: itemcallnumber): agrégala al Informe 101 para calcular el movimiento por colección.'];
-  let sinSig = 0, sinClase = 0;
-  rows.forEach(r => {
-    const ua = norm(r.ua || ''); if (!ua) return;
-    const t = S.topo[ua] || (S.topo[ua] = {nombre: r.ua, claves: {}, total: 0, sinSig: 0, sinClase: 0});
-    if (esRenov(r) && !S.incluirRenov) return;
-    const n = esRenov(r) ? 1 : (num(r.tansaccion ?? r.transaccion) || 1);
-    t.total += n;
-    const sig = (r[sigKey] || '').trim();
-    if (!sig) { t.sinSig += n; sinSig += n; return; }
-    const d = deweyDe(sig);
-    if (d === null) { t.sinClase += n; sinClase += n; return; }
-    const k = String(+d.toFixed(4)), c = t.claves[k] || (t.claves[k] = {pre: 0, pos: 0});
-    if (notaEsPos(r.notas)) c.pos += n; else c.pre += n;
-  });
-  const av = [];
-  if (sinSig)   av.push(`${sinSig} transacciones sin signatura (no entran al cálculo por colección).`);
-  if (sinClase) av.push(`${sinClase} signaturas sin número Dewey interpretable.`);
-  return av;
-}
-
-/** '510-519, 004-006, 515.3' → [[510,520),[4,7),[515.3,515.4)] · '515' = 515.0–515.99 */
-function parseRangos(txt) {
-  const rangos = [], errores = [];
-  String(txt || '').split(/[;,\n]/).map(t => t.trim()).filter(Boolean).forEach(t => {
-    const m = t.match(/^(\d{1,3}(?:\.\d+)?)(?:\s*[-–]\s*(\d{1,3}(?:\.\d+)?))?$/);
-    if (!m) { errores.push(t); return; }
-    const up = x => parseFloat(x) + Math.pow(10, -((x.split('.')[1] || '').length));
-    const lo = parseFloat(m[1]), hi = up(m[2] || m[1]);
-    if (hi <= lo) errores.push(t); else rangos.push([lo, hi]);
-  });
-  return {rangos, errores};
-}
-const enRango = (v, rangos) => rangos.some(([lo, hi]) => v >= lo - 1e-9 && v < hi - 1e-9);
-
-function topoResumen(ua) {
-  const t = S.topo[ua]; if (!t) return null;
-  const {rangos, errores} = parseRangos(S.rangosUA[ua]);
-  let pre = 0, pos = 0;
-  if (rangos.length) for (const [k, c] of Object.entries(t.claves)) if (enRango(parseFloat(k), rangos)) { pre += c.pre; pos += c.pos; }
-  const clasificadas = Object.values(t.claves).reduce((a, c) => a + c.pre + c.pos, 0);
-  const al = S.ua.filter(x => norm(x.ua) === ua).map(x => S.uaAlumnos[ukey(x)]).filter(v => v > 0);
-  return {nombre: t.nombre, rangos, errores, total: t.total, clasificadas, sinSig: t.sinSig, sinClase: t.sinClase,
-          pre, pos, enCol: pre + pos, alumnos: al.length ? al.reduce((a, b) => a + b, 0) : null};
-}
-function setRangos(ua, val) { S.rangosUA[ua] = val.trim(); saveSesion(); renderTopo(); }
-
-function renderTopo() {
-  const el = document.getElementById('topoSection');
-  const uas = Object.keys(S.topo || {});
-  if (!uas.length) { el.innerHTML = Object.keys(S.itemsUA || {}).length ? `<div class="section"><div class="section-head"><div class="section-title">Uso de ejemplares · Informe 101</div></div>${renderItemsTabla()}</div>` : ''; return; }
-  const filas = uas.map(u => [u, topoResumen(u)]).sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, 'es'));
-  const f1 = v => v.toFixed(1).replace('.', ',');
-  el.innerHTML = `<div class="section">
-    <div class="section-head"><div class="section-title">Movimiento por topográfico (Dewey) · préstamos de los alumnos de cada UA</div></div>
-    <div style="font-size:12px;margin-bottom:.5rem">Indica los rangos Dewey de la colección de cada programa, p. ej. <code>510-519, 004-006, 515.3</code>.
-      Un número sin decimales incluye toda su clase: <code>515</code> = 515.0 a 515.99. El % se calcula sobre los préstamos con clase Dewey interpretable.${periodoUATxt() ? ' <strong>Período de los préstamos (según fechas del Informe 101): ' + periodoUATxt() + '.</strong>' : ''}</div>
-    <div class="tbl-wrap"><table><thead><tr><th style="text-align:left">UA</th><th style="text-align:left">Rangos de su colección</th>
-      <th>Préstamos con clase Dewey</th><th>En su colección</th><th>% en su colección</th><th>Fuera</th><th>Alumnos UA</th><th>Prést. colección / alumno</th><th></th></tr></thead><tbody>
-    ${filas.map(([u, r]) => { const ok = r.rangos.length > 0; return `<tr><td style="text-align:left">${escH(r.nombre)}</td>
-      <td style="text-align:left"><input data-ua="${escH(u)}" value="${escH(S.rangosUA[u] || '')}" placeholder="ej. 510-519" onchange="setRangos(this.dataset.ua, this.value)"
-        style="width:170px;padding:3px 6px;border:1px solid ${r.errores.length ? '#C62828' : 'var(--border2)'};border-radius:var(--r)">
-        ${r.errores.length ? '<div class="miss" style="font-size:10px">No válido: ' + escH(r.errores.join(', ')) + '</div>' : ''}</td>
-      <td>${r.clasificadas.toLocaleString('es-CL')}</td>
-      <td>${ok ? r.enCol.toLocaleString('es-CL') : '—'}</td>
-      <td>${ok && r.clasificadas ? f1(r.enCol * 100 / r.clasificadas) + ' %' : '—'}</td>
-      <td>${ok ? (r.clasificadas - r.enCol).toLocaleString('es-CL') : '—'}</td>
-      <td>${r.alumnos ?? '<span class="miss">—</span>'}</td>
-      <td>${ok && r.alumnos ? (r.enCol / r.alumnos).toFixed(2).replace('.', ',') : '—'}</td>
-      <td><button data-ua="${escH(u)}" onclick="S.topoSel=this.dataset.ua;renderTopo()">Detalle</button></td></tr>`; }).join('')}
-    </tbody></table></div>${renderTopoDetalle()}${renderItemsTabla()}</div>`;
-}
-
-function renderTopoDetalle() {
-  const u = S.topoSel, t = u && S.topo[u]; if (!t) return '';
-  const r = topoResumen(u), porClase = {};
-  for (const [k, c] of Object.entries(t.claves)) { const cl = String(Math.floor(parseFloat(k))).padStart(3, '0'); porClase[cl] = (porClase[cl] || 0) + c.pre + c.pos; }
-  const top = Object.entries(porClase).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  const cruce = r.rangos.length ? Object.values(S.topo).map(tv => {
-    let n = 0, tot = 0;
-    for (const [k, c] of Object.entries(tv.claves)) { tot += c.pre + c.pos; if (enRango(parseFloat(k), r.rangos)) n += c.pre + c.pos; }
-    return {nombre: tv.nombre, n, tot};
-  }).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 10) : [];
-  const tabla = (tit, cab, filas) => `<div style="flex:1;min-width:280px"><div style="font-weight:600;font-size:12px;margin:.4rem 0">${tit}</div>
-    <table><thead><tr>${cab.map((c, i) => `<th${i ? '' : ' style="text-align:left"'}>${c}</th>`).join('')}</tr></thead><tbody>${filas.join('') || '<tr><td colspan="9">Sin datos</td></tr>'}</tbody></table></div>`;
-  return `<div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1rem;border-top:1px solid var(--border2);padding-top:.6rem">
-    ${tabla('Clases más prestadas por los alumnos de ' + escH(t.nombre), ['Clase Dewey', 'Préstamos', 'En su colección'],
-      top.map(([cl, n]) => `<tr><td style="text-align:left">${cl}</td><td>${n}</td><td>${r.rangos.length ? (enRango(+cl, r.rangos) ? 'Sí' : 'No') : '—'}</td></tr>`))}
-    ${tabla(r.rangos.length ? 'Quiénes prestan esa colección (por UA del alumno)' : 'Define rangos para ver quiénes prestan la colección', ['UA del alumno', 'Préstamos en la colección', '% de sus préstamos'],
-      cruce.map(x => `<tr><td style="text-align:left">${escH(x.nombre)}</td><td>${x.n}</td><td>${(x.n * 100 / x.tot).toFixed(1).replace('.', ',')} %</td></tr>`))}
-  </div>`;
-}
-
-function addTopoSheets(wb) {
-  const uas = Object.keys(S.topo || {}); if (!uas.length) return;
-  const res = uas.map(u => topoResumen(u)).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  const ws = XLSX.utils.aoa_to_sheet([
-    ['MOVIMIENTO POR TOPOGRÁFICO (DEWEY) — PRÉSTAMOS DE LOS ALUMNOS DE CADA UA'],
-    ['Fuente: Informe 101 con signatura' + (periodoUATxt() ? ' · período ' + periodoUATxt() : '') + '. % y préstamos por alumno se calculan sobre préstamos con clase Dewey interpretable.'],
-    [],
-    ['UA / Programa', 'Rangos Dewey de su colección', 'Préstamos totales', 'Préstamos con clase Dewey', 'En su colección', '% en su colección', 'Fuera de su colección', 'Pregrado (en colección)', 'Postgrado (en colección)', 'Alumnos UA', 'Prést. colección / alumno'],
-    ...res.map((r, i) => { const n = 5 + i, ok = r.rangos.length > 0;
-      return [r.nombre, S.rangosUA[norm(r.nombre)] || '', r.total, r.clasificadas, ok ? r.enCol : null,
-        fx(`IF(AND(ISNUMBER(E${n}),D${n}>0),E${n}/D${n},"")`, ok && r.clasificadas ? r.enCol / r.clasificadas : null),
-        fx(`IF(ISNUMBER(E${n}),D${n}-E${n},"")`, ok ? r.clasificadas - r.enCol : null),
-        ok ? r.pre : null, ok ? r.pos : null, r.alumnos,
-        fx(`IF(AND(ISNUMBER(E${n}),ISNUMBER(J${n})),IF(J${n}>0,E${n}/J${n},""),"")`, ok && r.alumnos ? r.enCol / r.alumnos : null)]; }),
-  ]);
-  for (let i = 0; i < res.length; i++) { const c = ws['F' + (5 + i)]; if (c) c.z = '0.0%'; const k = ws['K' + (5 + i)]; if (k) k.z = '0.00'; }
-  ws['!cols'] = [{wch:34},{wch:26},{wch:16},{wch:22},{wch:16},{wch:18},{wch:20},{wch:20},{wch:22},{wch:12},{wch:22}];
-  XLSX.utils.book_append_sheet(wb, ws, 'Movimiento por topográfico');
-  const det = [['UA / Programa', 'Clase Dewey (3 dígitos)', 'Préstamos', 'Pregrado', 'Postgrado']];
-  uas.forEach(u => { const t = S.topo[u], pc = {};
-    for (const [k, c] of Object.entries(t.claves)) { const cl = String(Math.floor(parseFloat(k))).padStart(3, '0'); const a = pc[cl] || (pc[cl] = {pre: 0, pos: 0}); a.pre += c.pre; a.pos += c.pos; }
-    Object.keys(pc).sort().forEach(cl => det.push([t.nombre, cl, pc[cl].pre + pc[cl].pos, pc[cl].pre, pc[cl].pos])); });
-  const ws2 = XLSX.utils.aoa_to_sheet(det); ws2['!cols'] = [{wch:34},{wch:22},{wch:12},{wch:12},{wch:12}];
-  XLSX.utils.book_append_sheet(wb, ws2, 'Clases Dewey por UA');
-}
-
-// ─────────────────────────────────────────────
 //  CALIDAD DE DATOS Y TRAZABILIDAD
 // ─────────────────────────────────────────────
 function renderQA() {
@@ -2192,7 +1994,6 @@ function addMetaSheet(wb, titulo) {
 function render() {
   renderChips();
   renderQA();
-  renderTopo();
   document.getElementById('dateBadge').textContent =
     'Préstamos (Inf. 72): ' + S.periodo + ' · al ' + new Date().toLocaleDateString('es-CL', {day:'numeric', month:'long', year:'numeric'});
   const rows = computeRows();
