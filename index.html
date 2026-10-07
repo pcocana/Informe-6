@@ -193,7 +193,7 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
   body.print-ficha *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body.print-ficha .sidebar,body.print-ficha .tab-bar,body.print-ficha .btn-export,
   body.print-ficha .main>:not(#tab-indicadores):not(#tab-dashboard),
-  body.print-ficha #tab-indicadores>:not(#cnaSectionWrap){display:none!important}
+  body.print-ficha #tab-indicadores>:not(#cnaSectionWrap):not(#topoSection){display:none!important}
   body.print-ficha .layout{display:block}
   body.print-ficha .main{padding:0;overflow:visible}
   body.print-ficha .tbl-wrap{overflow:visible}
@@ -357,6 +357,8 @@ tfoot td:first-child{text-align:left;position:sticky;left:0;background:var(--bg)
     </div>
   </div>
 
+  <div id="topoSection"></div>
+
   <div class="section" id="cnaSectionWrap" style="display:none">
     <div class="section-head">
       <div class="section-title">Ficha Acreditación CNA · Recursos bibliográficos</div>
@@ -502,7 +504,10 @@ const S = {
   unificado:   false,  // true si se cargó al menos un archivo en formato unificado PUCV
   periodo:     'desde 2019', // rótulo editable del período de préstamos (Inf. 72)
   log:         [],     // trazabilidad: un registro por archivo leído
-  huellas:     new Map() // hash de contenido de archivos de préstamos por UA → UAs que aportó
+  huellas:     new Map(), // hash de contenido de archivos de préstamos por UA → UAs que aportó
+  topo:        {},   // Inf. 101 + signatura: {ua_norm: {nombre, claves:{'515.35':{pre,pos}}, total, sinSig, sinClase}}
+  rangosUA:    {},   // rangos Dewey de la colección de cada UA (texto ingresado)
+  topoSel:     null  // UA con el detalle abierto
 };
 
 /** Número tolerante: '1.234' → 1234 · '12,5' → 13 · '' → 0 (antes parseInt('1.234') daba 1). */
@@ -532,7 +537,7 @@ const ukey = x => (x.bib || '') + '|' + x.ua;
 // ─────────────────────────────────────────────
 const SESION_KEY = 'pucv_panel_indicadores_sesion_v1';
 function saveSesion() {
-  try { localStorage.setItem(SESION_KEY, JSON.stringify({v:1, periodo:S.periodo, names:NAMES, uaAlumnos:S.uaAlumnos})); } catch (e) {}
+  try { localStorage.setItem(SESION_KEY, JSON.stringify({v:1, periodo:S.periodo, names:NAMES, uaAlumnos:S.uaAlumnos, rangosUA:S.rangosUA})); } catch (e) {}
 }
 function loadSesion() {
   try {
@@ -541,6 +546,7 @@ function loadSesion() {
     if (d.periodo)   S.periodo = d.periodo;
     if (d.names)     NAMES = {...ORIGINAL_NAMES, ...d.names};
     if (d.uaAlumnos) S.uaAlumnos = d.uaAlumnos;
+    if (d.rangosUA)  S.rangosUA  = d.rangosUA;
   } catch (e) {}
 }
 function borrarSesion() {
@@ -880,6 +886,7 @@ async function handleFiles(files, isUA = false) {
         // Acumula transacciones (un archivo puede ser solo para una UA)
         const nuevo = processPrestamosUA(rows);
         S.huellas.set(huella, Object.keys(nuevo));
+        avisos.push(...processTopo(rows));
         const sinCat = rows.filter(r => { const t = (r.notas || '').toLowerCase(); return !t.includes('postgrado') && !t.includes('pregrado'); }).length;
         if (sinCat) avisos.push(`${sinCat} transacciones sin 'pregrado'/'postgrado' en Notas se contaron como pregrado.`);
         if (!S.prestamosUA) S.prestamosUA = {};
@@ -1409,6 +1416,7 @@ function removeUAName(ua) {                    // quita la UA de todas las bibli
 }
 function limpiarPrestamosUA(ua) {
   if (S.prestamosUA) delete S.prestamosUA[norm(ua)];
+  if (S.topo) delete S.topo[norm(ua)];
   for (const [h, uas] of S.huellas) if (uas.includes(norm(ua))) S.huellas.delete(h);
 }
 
@@ -1712,6 +1720,7 @@ function exportCNA() {
   }
 
   const dateTag = d.toLocaleDateString('es-CL').replace(/\//g, '-');
+  addTopoSheets(wb);
   addMetaSheet(wb, 'Ficha acreditación CNA');
   XLSX.writeFile(wb, `Ficha_CNA_PUCV_${dateTag}.xlsx`);
 }
@@ -1858,6 +1867,138 @@ function renderDashboard() {
 }
 
 // ─────────────────────────────────────────────
+//  MOVIMIENTO POR TOPOGRÁFICO (Dewey) · Informe 101 + signatura
+// ─────────────────────────────────────────────
+const SIG_KEYS = ['signatura','signaturatopografica','topografico','topografica','itemcallnumber','callnumber','clasificacion','cdd','dewey'];
+
+/** Número Dewey de una signatura: '515 FIG' → 515 · '515.35 F54' → 515.35 · 'REF 510.1 B3' → 510.1 */
+function deweyDe(sig) {
+  const m = String(sig || '').match(/(?<![\d.,])(\d{3})(?!\d)(?:\.(\d+))?/);
+  return m ? parseFloat(m[1] + (m[2] ? '.' + m[2] : '')) : null;
+}
+
+/** Acumula por UA los préstamos por clase Dewey. Devuelve avisos de calidad. */
+function processTopo(rows) {
+  const sigKey = rows.length ? Object.keys(rows[0]).find(k => k === norm(k) && SIG_KEYS.includes(k.replace(/[^a-z]/g, ''))) : null;
+  if (!sigKey) return ['Sin columna de signatura/topográfico: no se calcula movimiento por colección.'];
+  let sinSig = 0, sinClase = 0;
+  rows.forEach(r => {
+    const ua = norm(r.ua || ''); if (!ua) return;
+    const t = S.topo[ua] || (S.topo[ua] = {nombre: r.ua, claves: {}, total: 0, sinSig: 0, sinClase: 0});
+    const n = num(r.tansaccion || r.transaccion || 1) || 1;
+    t.total += n;
+    const sig = (r[sigKey] || '').trim();
+    if (!sig) { t.sinSig += n; sinSig += n; return; }
+    const d = deweyDe(sig);
+    if (d === null) { t.sinClase += n; sinClase += n; return; }
+    const k = String(+d.toFixed(4)), c = t.claves[k] || (t.claves[k] = {pre: 0, pos: 0});
+    if ((r.notas || '').toLowerCase().includes('postgrado')) c.pos += n; else c.pre += n;
+  });
+  const av = [];
+  if (sinSig)   av.push(`${sinSig} transacciones sin signatura (no entran al cálculo por colección).`);
+  if (sinClase) av.push(`${sinClase} signaturas sin número Dewey interpretable.`);
+  return av;
+}
+
+/** '510-519, 004-006, 515.3' → [[510,520),[4,7),[515.3,515.4)] · '515' = 515.0–515.99 */
+function parseRangos(txt) {
+  const rangos = [], errores = [];
+  String(txt || '').split(/[;,\n]/).map(t => t.trim()).filter(Boolean).forEach(t => {
+    const m = t.match(/^(\d{1,3}(?:\.\d+)?)(?:\s*[-–]\s*(\d{1,3}(?:\.\d+)?))?$/);
+    if (!m) { errores.push(t); return; }
+    const up = x => parseFloat(x) + Math.pow(10, -((x.split('.')[1] || '').length));
+    const lo = parseFloat(m[1]), hi = up(m[2] || m[1]);
+    if (hi <= lo) errores.push(t); else rangos.push([lo, hi]);
+  });
+  return {rangos, errores};
+}
+const enRango = (v, rangos) => rangos.some(([lo, hi]) => v >= lo - 1e-9 && v < hi - 1e-9);
+
+function topoResumen(ua) {
+  const t = S.topo[ua]; if (!t) return null;
+  const {rangos, errores} = parseRangos(S.rangosUA[ua]);
+  let pre = 0, pos = 0;
+  if (rangos.length) for (const [k, c] of Object.entries(t.claves)) if (enRango(parseFloat(k), rangos)) { pre += c.pre; pos += c.pos; }
+  const clasificadas = Object.values(t.claves).reduce((a, c) => a + c.pre + c.pos, 0);
+  const al = S.ua.filter(x => norm(x.ua) === ua).map(x => S.uaAlumnos[ukey(x)]).filter(v => v > 0);
+  return {nombre: t.nombre, rangos, errores, total: t.total, clasificadas, sinSig: t.sinSig, sinClase: t.sinClase,
+          pre, pos, enCol: pre + pos, alumnos: al.length ? al.reduce((a, b) => a + b, 0) : null};
+}
+function setRangos(ua, val) { S.rangosUA[ua] = val.trim(); saveSesion(); renderTopo(); }
+
+function renderTopo() {
+  const el = document.getElementById('topoSection');
+  const uas = Object.keys(S.topo || {});
+  if (!uas.length) { el.innerHTML = ''; return; }
+  const filas = uas.map(u => [u, topoResumen(u)]).sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, 'es'));
+  const f1 = v => v.toFixed(1).replace('.', ',');
+  el.innerHTML = `<div class="section">
+    <div class="section-head"><div class="section-title">Movimiento por topográfico (Dewey) · préstamos de los alumnos de cada UA</div></div>
+    <div style="font-size:12px;margin-bottom:.5rem">Indica los rangos Dewey de la colección de cada programa, p. ej. <code>510-519, 004-006, 515.3</code>.
+      Un número sin decimales incluye toda su clase: <code>515</code> = 515.0 a 515.99. El % se calcula sobre los préstamos con clase Dewey interpretable.</div>
+    <div class="tbl-wrap"><table><thead><tr><th style="text-align:left">UA</th><th style="text-align:left">Rangos de su colección</th>
+      <th>Préstamos con clase Dewey</th><th>En su colección</th><th>% en su colección</th><th>Fuera</th><th>Alumnos UA</th><th>Prést. colección / alumno</th><th></th></tr></thead><tbody>
+    ${filas.map(([u, r]) => { const ok = r.rangos.length > 0; return `<tr><td style="text-align:left">${escH(r.nombre)}</td>
+      <td style="text-align:left"><input data-ua="${escH(u)}" value="${escH(S.rangosUA[u] || '')}" placeholder="ej. 510-519" onchange="setRangos(this.dataset.ua, this.value)"
+        style="width:170px;padding:3px 6px;border:1px solid ${r.errores.length ? '#C62828' : 'var(--border2)'};border-radius:var(--r)">
+        ${r.errores.length ? '<div class="miss" style="font-size:10px">No válido: ' + escH(r.errores.join(', ')) + '</div>' : ''}</td>
+      <td>${r.clasificadas.toLocaleString('es-CL')}</td>
+      <td>${ok ? r.enCol.toLocaleString('es-CL') : '—'}</td>
+      <td>${ok && r.clasificadas ? f1(r.enCol * 100 / r.clasificadas) + ' %' : '—'}</td>
+      <td>${ok ? (r.clasificadas - r.enCol).toLocaleString('es-CL') : '—'}</td>
+      <td>${r.alumnos ?? '<span class="miss">—</span>'}</td>
+      <td>${ok && r.alumnos ? (r.enCol / r.alumnos).toFixed(2).replace('.', ',') : '—'}</td>
+      <td><button data-ua="${escH(u)}" onclick="S.topoSel=this.dataset.ua;renderTopo()">Detalle</button></td></tr>`; }).join('')}
+    </tbody></table></div>${renderTopoDetalle()}</div>`;
+}
+
+function renderTopoDetalle() {
+  const u = S.topoSel, t = u && S.topo[u]; if (!t) return '';
+  const r = topoResumen(u), porClase = {};
+  for (const [k, c] of Object.entries(t.claves)) { const cl = String(Math.floor(parseFloat(k))).padStart(3, '0'); porClase[cl] = (porClase[cl] || 0) + c.pre + c.pos; }
+  const top = Object.entries(porClase).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const cruce = r.rangos.length ? Object.values(S.topo).map(tv => {
+    let n = 0, tot = 0;
+    for (const [k, c] of Object.entries(tv.claves)) { tot += c.pre + c.pos; if (enRango(parseFloat(k), r.rangos)) n += c.pre + c.pos; }
+    return {nombre: tv.nombre, n, tot};
+  }).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 10) : [];
+  const tabla = (tit, cab, filas) => `<div style="flex:1;min-width:280px"><div style="font-weight:600;font-size:12px;margin:.4rem 0">${tit}</div>
+    <table><thead><tr>${cab.map((c, i) => `<th${i ? '' : ' style="text-align:left"'}>${c}</th>`).join('')}</tr></thead><tbody>${filas.join('') || '<tr><td colspan="9">Sin datos</td></tr>'}</tbody></table></div>`;
+  return `<div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1rem;border-top:1px solid var(--border2);padding-top:.6rem">
+    ${tabla('Clases más prestadas por los alumnos de ' + escH(t.nombre), ['Clase Dewey', 'Préstamos', 'En su colección'],
+      top.map(([cl, n]) => `<tr><td style="text-align:left">${cl}</td><td>${n}</td><td>${r.rangos.length ? (enRango(+cl, r.rangos) ? 'Sí' : 'No') : '—'}</td></tr>`))}
+    ${tabla(r.rangos.length ? 'Quiénes prestan esa colección (por UA del alumno)' : 'Define rangos para ver quiénes prestan la colección', ['UA del alumno', 'Préstamos en la colección', '% de sus préstamos'],
+      cruce.map(x => `<tr><td style="text-align:left">${escH(x.nombre)}</td><td>${x.n}</td><td>${(x.n * 100 / x.tot).toFixed(1).replace('.', ',')} %</td></tr>`))}
+  </div>`;
+}
+
+function addTopoSheets(wb) {
+  const uas = Object.keys(S.topo || {}); if (!uas.length) return;
+  const res = uas.map(u => topoResumen(u)).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['MOVIMIENTO POR TOPOGRÁFICO (DEWEY) — PRÉSTAMOS DE LOS ALUMNOS DE CADA UA'],
+    ['Fuente: Informe 101 con signatura. % y préstamos por alumno se calculan sobre préstamos con clase Dewey interpretable.'],
+    [],
+    ['UA / Programa', 'Rangos Dewey de su colección', 'Préstamos totales', 'Préstamos con clase Dewey', 'En su colección', '% en su colección', 'Fuera de su colección', 'Pregrado (en colección)', 'Postgrado (en colección)', 'Alumnos UA', 'Prést. colección / alumno'],
+    ...res.map((r, i) => { const n = 5 + i, ok = r.rangos.length > 0;
+      return [r.nombre, S.rangosUA[norm(r.nombre)] || '', r.total, r.clasificadas, ok ? r.enCol : null,
+        fx(`IF(AND(ISNUMBER(E${n}),D${n}>0),E${n}/D${n},"")`, ok && r.clasificadas ? r.enCol / r.clasificadas : null),
+        fx(`IF(ISNUMBER(E${n}),D${n}-E${n},"")`, ok ? r.clasificadas - r.enCol : null),
+        ok ? r.pre : null, ok ? r.pos : null, r.alumnos,
+        fx(`IF(AND(ISNUMBER(E${n}),ISNUMBER(J${n})),IF(J${n}>0,E${n}/J${n},""),"")`, ok && r.alumnos ? r.enCol / r.alumnos : null)]; }),
+  ]);
+  for (let i = 0; i < res.length; i++) { const c = ws['F' + (5 + i)]; if (c) c.z = '0.0%'; const k = ws['K' + (5 + i)]; if (k) k.z = '0.00'; }
+  ws['!cols'] = [{wch:34},{wch:26},{wch:16},{wch:22},{wch:16},{wch:18},{wch:20},{wch:20},{wch:22},{wch:12},{wch:22}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Movimiento por topográfico');
+  const det = [['UA / Programa', 'Clase Dewey (3 dígitos)', 'Préstamos', 'Pregrado', 'Postgrado']];
+  uas.forEach(u => { const t = S.topo[u], pc = {};
+    for (const [k, c] of Object.entries(t.claves)) { const cl = String(Math.floor(parseFloat(k))).padStart(3, '0'); const a = pc[cl] || (pc[cl] = {pre: 0, pos: 0}); a.pre += c.pre; a.pos += c.pos; }
+    Object.keys(pc).sort().forEach(cl => det.push([t.nombre, cl, pc[cl].pre + pc[cl].pos, pc[cl].pre, pc[cl].pos])); });
+  const ws2 = XLSX.utils.aoa_to_sheet(det); ws2['!cols'] = [{wch:34},{wch:22},{wch:12},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Clases Dewey por UA');
+}
+
+// ─────────────────────────────────────────────
 //  CALIDAD DE DATOS Y TRAZABILIDAD
 // ─────────────────────────────────────────────
 function renderQA() {
@@ -1904,6 +2045,7 @@ function addMetaSheet(wb, titulo) {
 function render() {
   renderChips();
   renderQA();
+  renderTopo();
   document.getElementById('dateBadge').textContent =
     'Préstamos (Inf. 72): ' + S.periodo + ' · al ' + new Date().toLocaleDateString('es-CL', {day:'numeric', month:'long', year:'numeric'});
   const rows = computeRows();
